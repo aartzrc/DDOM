@@ -1,53 +1,55 @@
-import DDOM.DDOMStatic;
+import ddom.DDOMStore;
+import ddom.DDOM;
 
 class Main {
 	static function main() {
-        DDOMStatic.on("*", (e, ddom) -> {
-            trace(e + " : " + ddom);
+        var store = new DDOMStore();
+        store.on(null, (e) -> {
+            trace(e);
         });
-        basicTests();
-        selectorTests();
+        basicTests(store);
+        //selectorTests(store);
 	}
 
-    static function selectorTests() {
+    static function selectorTests(store:DDOMStore) {
         // Create some objects
-        var session = DDOM.create("session");
+        var session = store.create("session");
         session.id = "home-server";
-        var user = DDOM.create("user");
+        var user = store.create("user");
         user.id = "user-with-id";
         session.append(user);
-        var cart = DDOM.create("cart");
+        var cart = store.create("cart");
         user.append(cart);
-        var user = DDOM.create("user");
+        var user = store.create("user");
         session.append(user);
-        var cart = DDOM.create("cart");
+        var cart = store.create("cart");
         user.append(cart);
-        var user = DDOM.create("user");
+        var user = store.create("user");
         session.append(user);
         user.id = "user-without-cart";
-        var cart = DDOM.create("cart");
+        var cart = store.create("cart");
         cart.id = "cart-without-user";
 
         // Test recursive loops
         cart.append(session);
 
-        trace(DDOM.select("*")); // Grab everything
-        /*trace(DDOM.select("#home-server")); // Get by ID
-        trace(DDOM.select("user,cart")); // Get by type
-        trace(DDOM.select("user > cart")); // Carts assigned to users
-        trace(DDOM.select("cart < user")); // Users assigned to carts
-        trace(DDOM.select("*")[1]); // Array access*/
-        trace(DDOM.select("*:gt(2)")); // Range select
-        trace(DDOM.select("session cart")); // Carts in session
-        trace(DDOM.select("*:gt(2)").sub("session")); // Test sub-select
+        trace(store.select("*")); // Grab everything
+        /*trace(store.select("#home-server")); // Get by ID
+        trace(store.select("user,cart")); // Get by type
+        trace(store.select("user > cart")); // Carts assigned to users
+        trace(store.select("cart < user")); // Users assigned to carts
+        trace(store.select("*")[1]); // Array access*/
+        trace(store.select("*:gt(2)")); // Range select
+        trace(store.select("session cart")); // Carts in session
+        trace(store.select("*:gt(2)").sub("session")); // Test sub-select
     }
 
-    static function basicTests() {
+    static function basicTests(store:DDOMStore) {
         // Create an obj
-		var session = DDOM.create("session");
+		var session = store.create("session");
         session.id = "home-server";
         // Get it by id
-        var homeSession = DDOM.getById("home-server");
+        var homeSession = store.getById("home-server");
         // Example that all DDOM instances are an array
         for(s in homeSession)
             trace(s.id);
@@ -55,13 +57,13 @@ class Main {
         trace(homeSession.id);
 
         // Create another obj of same type
-        DDOM.create("session");
+        store.create("session");
         // Get all objects of this type
-        var sessions = DDOM.getByType("session");
+        var sessions = store.getByType("session");
         for(s in sessions) trace(s.id);
 
         // Create a new obj type
-        var user = DDOM.create("user");
+        var user = store.create("user");
         // This will append to both session instances
         sessions.append(user);
 
@@ -82,7 +84,7 @@ class Main {
         trace(sessions.children().size());
 
         // Verify the user is available
-        trace(DDOM.getByType("user").size());
+        trace(store.getByType("user").size());
         
         // Add back to verify delete works
         homeSession.append(user);
@@ -96,6 +98,6 @@ class Main {
         trace(homeSession.children());
 
         // User is not longer available
-        trace(DDOM.getByType("user").size());
+        trace(store.getByType("user").size());
     }
 }
