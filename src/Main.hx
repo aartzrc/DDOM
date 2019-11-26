@@ -23,11 +23,17 @@ class Main {
         var cart = DDOM.create("cart");
         cart.id = "cart-without-user";
 
+        // Test recursive loops
+        cart.append(session);
+
         trace(DDOM.select("*")); // Grab everything
-        trace(DDOM.select("#home-server")); // Get by ID
+        /*trace(DDOM.select("#home-server")); // Get by ID
         trace(DDOM.select("user,cart")); // Get by type
         trace(DDOM.select("user > cart")); // Carts assigned to users
         trace(DDOM.select("cart < user")); // Users assigned to carts
+        trace(DDOM.select("*")[1]); // Array access*/
+        trace(DDOM.select("*:gt(2)")); // Range select
+        trace(DDOM.select("session cart")); // Carts in session
     }
 
     static function basicTests() {
