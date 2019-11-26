@@ -5,7 +5,6 @@ import ddom.DDOM.DataNode;
 
 using Lambda;
 using Reflect;
-using Type;
 using StringTools;
 
 @:allow(ddom.DDOMInst)
@@ -23,6 +22,87 @@ class DDOMSelectorProcessor {
 
         TODO: store the selector within the DDOM and make DDOM 'observable', when a data update occurs re-run the selector and notify any listeners
     */
+    public static function tokenize(selector:String):Array<SelectorGroup> {
+        function processGroup(sel:String) {
+            var tokens:Array<SelectorToken> = [];
+            var tokenChunks = sel.split(" ");
+
+            function splitType(sel:String) {
+                var type = sel;
+                var filter = null;
+                // Check for filters
+                var st1 = sel.indexOf("[");
+                var st2 = sel.indexOf(":");
+                if(st1 > 0) {
+                    type = sel.substr(0, st1);
+                    filter = sel.substr(st1);
+                } else if(st2 > 0) {
+                    type = sel.substr(0, st2);
+                    filter = sel.substr(st2);
+                }
+                return {type:type,filter:filter};
+            }
+            function processFilter(filter:String) {
+                if(filter == null || filter.length == 0) return All;
+                switch(filter.charAt(0)) {
+                    case ":": // query selector
+                        var q = filter.substr(1);
+                        var m = [ "eq", "gt", "lt" ].find((t) -> q.indexOf(t) == 0);
+                        switch(m) {
+                            case "eq":
+                                return Eq(Std.parseInt(q.substr(3)));
+                            case "gt":
+                                return Gt(Std.parseInt(q.substr(3)));
+                            case "lt":
+                                return Lt(Std.parseInt(q.substr(3)));
+                        }
+                    case "[": // attribute/field selector
+                        trace("TODO: attribute selector");
+                }
+
+                // Unknown filter, return All
+                return All;
+            }
+
+            inline function getCleanTokenType(q:String) {
+                // Check for beginning token return match - this just standardizes the lookup, a null means no match and default to 'type' lookup
+                return q == null ? null : [ "*", "#", ">", "<" ].find((t) -> q.indexOf(t) == 0);
+            }
+
+            while(tokenChunks.length > 0) {
+                var t = tokenChunks.shift();
+                t = t.trim();
+                // Ignore empties
+                if(t.length > 0) {
+                    switch(getCleanTokenType(t)) {
+                        case "*": // all selector
+                            tokens.push(All(processFilter(t.substr(1))));
+                        case "#": // id selector
+                            tokens.push(Id(t.substr(1)));
+                        case ">": // direct children selector
+                            // get child type
+                            var type = splitType(tokenChunks.shift());
+                            tokens.push(Children(type.type, processFilter(type.filter)));
+                        case "<": // parent selector
+                            // get parent type
+                            var type = splitType(tokenChunks.shift());
+                            tokens.push(Parents(type.type, processFilter(type.filter)));
+                        case _: // Default to type selection
+                            var type = splitType(t);
+                            tokens.push(OfType(type.type, processFilter(type.filter)));
+                            if(tokenChunks[0] != null && getCleanTokenType(tokenChunks[0]) == null) { // Check for 'descendants' selector
+                                var descType = splitType(tokenChunks.shift());
+                                tokens.push(Descendants(descType.type, processFilter(descType.filter)));
+                            }
+                    }
+                }
+            }
+
+            return tokens;
+        }
+        return selector.split(",").map((sel) -> {tokens:processGroup(sel)});
+    }
+
     static function process(store:DDOMStore, selector:String, parent:DDOMInst = null):Array<DataNode> {
         if(parent == null) { // null parent means use all data
             parent = new DDOMInst(store, "");
@@ -141,4 +221,24 @@ class DDOMSelectorProcessor {
         }
         return nodes;
     }
+}
+
+typedef SelectorGroup = {
+    tokens:Array<SelectorToken>
+}
+
+enum SelectorToken {
+    All(filter:TokenFilter);
+    Id(id:String);
+    OfType(type:String, filter:TokenFilter);
+    Children(type:String, filter:TokenFilter);
+    Parents(type:String, filter:TokenFilter);
+    Descendants(type:String,filter:TokenFilter);
+}
+
+enum TokenFilter {
+    All;
+    Eq(pos:Int);
+    Gt(pos:Int);
+    Lt(pos:Int);
 }

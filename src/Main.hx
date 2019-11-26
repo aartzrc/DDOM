@@ -1,5 +1,5 @@
 import ddom.DDOMStore;
-import ddom.DDOM;
+import ddom.DDOMSelectorProcessor;
 
 class Main {
 	static function main() {
@@ -7,9 +7,17 @@ class Main {
         store.on(null, (e) -> {
             trace(e);
         });
-        basicTests(store);
+        //basicTests(store);
         //selectorTests(store);
+
+        tokenizerTests();
 	}
+
+    static function tokenizerTests() {
+        trace(DDOMSelectorProcessor.tokenize("session cart:gt(2)"));
+        trace(DDOMSelectorProcessor.tokenize("*"));
+        trace(DDOMSelectorProcessor.tokenize("*:gt(2)"));
+    }
 
     static function selectorTests(store:DDOMStore) {
         // Create some objects

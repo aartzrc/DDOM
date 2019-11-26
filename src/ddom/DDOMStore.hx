@@ -3,11 +3,6 @@ package ddom;
 import ddom.DDOM;
 import ddom.DDOM.DataNode;
 
-using Lambda;
-using Reflect;
-using Type;
-using StringTools;
-
 /**
  * This is the root level repository of data, it provides some basic lookups and events. Extend/override to handle backing data sources.
  */

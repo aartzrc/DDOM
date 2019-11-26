@@ -3,7 +3,6 @@ package ddom;
 using Lambda;
 using Reflect;
 using Type;
-using StringTools;
 
 @:allow(ddom.DDOM, ddom.DDOMIterator, ddom.DDOMSelectorProcessor, ddom.DDOMStore)
 class DDOMInst {
