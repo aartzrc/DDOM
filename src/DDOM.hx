@@ -3,30 +3,84 @@ using Reflect;
 using Type;
 using StringTools;
 
-@:allow(DDOM, DDOMIterator, DDOMSelectorProcessor)
-class DDOMCore {
+/**
+ * This is the root level repository of data, it provides some basic lookups and events
+ */
+@:allow(DDOM, DDOMInst, DDOMSelectorProcessor)
+class DDOMStatic {
+    // Lookup maps, for speed mostly - this could be handled with one large Array
     static var dataByType:Map<String, Array<DataNode>> = [];
     static var dataById:Map<String, DataNode> = [];
+
+    static var listeners:Map<String, Array<(event:String, ddom:DDOM)->Void>> = [];
+
+    /**
+     * Add a listener for the specified event name (or * for all events), return is a function that can be used for detaching the callback - or use 'off'
+     * @param event 
+     * @param callback 
+     * @return ()->Void
+     */
+    public static function on(event:String, callback:(event:String, ddom:DDOM)->Void) {
+        if(!listeners.exists(event)) listeners[event] = [];
+        var cbs = listeners[event];
+        if(cbs.indexOf(callback) == -1)
+            cbs.push(callback);
+        return off.bind(event, callback);
+    }
+
+    /**
+     * Remove a listener, or ALL listeners for an event by passing a null callback function
+     * @param event 
+     * @param callback 
+     * @return ->Void)
+     */
+    public static function off(event:String, callback:(event:String, ddom:DDOM)->Void) {
+        if(!listeners.exists(event)) return false;
+        if(callback == null && event != "*") return listeners.remove(event);
+        var cbs = listeners[event];
+        return cbs.remove(callback);
+    }
+
+    static function fire(event:String, ddom:DDOM) {
+        if(listeners.exists("*"))
+            for(cb in listeners["*"])
+                cb(event, ddom);
+        if(!listeners.exists(event)) return;
+        for(cb in listeners[event])
+            cb(event, ddom);
+    }
 
 	static function create(type:String):DDOM {
         var dn = new DataNode(type);
         if(!dataByType.exists(type)) dataByType[type] = [];
         dataByType[type].push(dn);
-        // TODO: fire events
         // A bit of trickery to maintain ctor consistency - empty selector returns an empty nodes result, then we populate with the single item that was just created
-        var ddom = new DDOMCore("");
+        var ddom = new DDOMInst("");
         ddom.nodes.push(dn);
+        fire("create", ddom);
         return ddom;
     }
 
     static function getById(id:String):DDOM {
-        return new DDOMCore("#" + id);
+        return new DDOMInst("#" + id);
     }
 
     static function getByType(type:String):DDOM {
-        return new DDOMCore(type);
+        return new DDOMInst(type);
     }
-    
+
+    /**
+     * Select from the root data set
+     * @param selector 
+     * @return DDOM
+     */
+    static function select(selector:String):DDOM {
+        return new DDOMInst(selector);
+    }
+}
+
+@:allow(DDOM, DDOMIterator, DDOMSelectorProcessor, DDOMStatic)
+class DDOMInst {
     var nodes:Array<DataNode>; // If parent and nodes are null, the selector will pull from the root data set
     var selector:{selector:String, parent:DDOM};
     function new(selector:String = "*", parent:DDOM = null) {
@@ -37,25 +91,20 @@ class DDOMCore {
         else
             this.nodes = [];
     }
-    /**
-     * attaches a callback, any data changes will result in callback being called, return value function is a detach method
-     * @param callback 
-     * @return ->Void):()->Void
-     */
-    /*public function attach(callback:(DDOM)->Void):()->Void {
 
-    }*/
+    // TODO: on/off per DDOMInst - any way to consolidate the selectors?
+    // maybe each 'sub' call can trace up the stack to the root 'select' so they can stay isolated, then cache these at DDOMStatic. a selector can't change once it is applied to a DDOMInst, so this should be solid
 
     /**
      * Returns all unique children of the nodes available in this DDOM
      * @return DDOM
      */
     public function children():DDOM {
-        return new DDOMCore("* > *", this); // Get all direct children of nodes in this DDOM
+        return new DDOMInst("* > *", this); // Get all direct children of nodes in this DDOM
     }
 
     public function parents():DDOM {
-        return new DDOMCore("* < *", this); // Get all parents of nodes in this DDOM
+        return new DDOMInst("* < *", this); // Get all parents of nodes in this DDOM
     }
 
     /**
@@ -63,9 +112,9 @@ class DDOMCore {
      * @param child 
      */
     public function append(child:DDOM) {
-        var coreChild:DDOMCore = cast child;
+        var coreChild:DDOMInst = cast child;
         // Verify the children are part of the data set
-        if(coreChild.nodes.exists((n) -> dataByType[n.type].indexOf(n) == -1)) throw "Detached DDOM, unable to appendChild";
+        if(coreChild.nodes.exists((n) -> DDOMStatic.dataByType[n.type].indexOf(n) == -1)) throw "Detached DDOM, unable to appendChild";
         for(node in nodes) {
             for(cn in coreChild.nodes) {
                 if(node.children.indexOf(cn) == -1) {
@@ -82,7 +131,7 @@ class DDOMCore {
      * @param child 
      */
     public function remove(child:DDOM) {
-        var coreChild:DDOMCore = cast child;
+        var coreChild:DDOMInst = cast child;
         for(node in nodes) {
             for(cn in coreChild.nodes) {
                 trace(cn);
@@ -99,9 +148,9 @@ class DDOMCore {
         for(pn in parents()) pn.remove(this);
         for(node in nodes) {
             var id = node.fields.field("id");
-            if(id != null) dataById.remove(id);
-            dataByType[node.type].remove(node);
-            // TODO: fire events
+            if(id != null) DDOMStatic.dataById.remove(id);
+            DDOMStatic.dataByType[node.type].remove(node);
+            DDOMStatic.fire("delete", this);
         }
     }
 
@@ -118,9 +167,9 @@ class DDOMCore {
             var newId:String = cast value;
             var prevId:String = cast nodes.fields.field("id");
             if(newId != prevId) {
-                if(dataById.exists(newId)) throw "Unable to set `DDOM.id`, duplicate id value found";
-                if(prevId != null) dataById.remove(prevId);
-                dataById.set(newId, node);
+                if(DDOMStatic.dataById.exists(newId)) throw "Unable to set `DDOM.id`, duplicate id value found";
+                if(prevId != null) DDOMStatic.dataById.remove(prevId);
+                DDOMStatic.dataById.set(newId, node);
             }
         }
         // Verify type remains the same
@@ -136,7 +185,7 @@ class DDOMCore {
     }
 
     function arrayRead(n:Int):DDOM {
-        return new DDOMCore("*:eq(" + n + ")"); // Get all, then choose the 'n'th item
+        return new DDOMInst("*:eq(" + n + ")"); // Get all, then choose the 'n'th item
     }
 
     public function iterator():Iterator<DDOM> {
@@ -148,25 +197,16 @@ class DDOMCore {
     }
 
     /**
-     * Select from the root data set
-     * @param selector 
-     * @return DDOM
-     */
-    static function select(selector:String):DDOM {
-        return new DDOMCore(selector);
-    }
-
-    /**
      * Select a sub-set of this DDOM
      * @param selector 
      * @return DDOM
      */
-    function sub(selector:String):DDOM {
-        return new DDOMCore(selector, this);
+    public function sub(selector:String):DDOM {
+        return new DDOMInst(selector, this);
     }
 }
 
-@:allow(DDOMCore)
+@:allow(DDOMInst)
 class DDOMIterator {
     var i:Int = 0;
     var nodes:Array<DataNode>;
@@ -177,14 +217,14 @@ class DDOMIterator {
         return i < nodes.length;
     }
     public function next() {
-        var ddom = new DDOMCore("");
+        var ddom = new DDOMInst("");
         ddom.nodes.push(nodes[i++]);
         return ddom;
     }
 }
 
-@:forward(iterator, append, children, size, delete, remove)
-abstract DDOM(DDOMCore) from DDOMCore to DDOMCore {
+@:forward(iterator, append, children, size, delete, remove, sub)
+abstract DDOM(DDOMInst) from DDOMInst to DDOMInst {
     @:op(a.b)
     public function fieldWrite<T>(name:String, value:T) this.fieldWrite(name, value);
     @:op(a.b)
@@ -192,15 +232,14 @@ abstract DDOM(DDOMCore) from DDOMCore to DDOMCore {
     @:op([]) 
     public function arrayRead(n:Int) return this.arrayRead(n);
 
-    // @:forward doesn't work on static funcs?
-    public static function create(type:String) return DDOMCore.create(type);
-    public static function getById(id:String) return DDOMCore.getById(id);
-    public static function getByType(type:String) return DDOMCore.getByType(type);
-    public static function select(selector:String) return DDOMCore.select(selector);
+    public static function create(type:String) return DDOMStatic.create(type);
+    public static function getById(id:String) return DDOMStatic.getById(id);
+    public static function getByType(type:String) return DDOMStatic.getByType(type);
+    public static function select(selector:String) return DDOMStatic.select(selector);
 }
 
 // This is the actual data item, DDOM wraps this
-@:allow(DDOMCore, DDOMSelectorProcessor)
+@:allow(DDOMInst, DDOMSelectorProcessor, DDOMStatic)
 class DataNode {
     var type:String;
     var fields = {};
@@ -217,7 +256,7 @@ class DataNode {
     }
 }
 
-@:allow(DDOMCore)
+@:allow(DDOMInst)
 class DDOMSelectorProcessor {
     /* Notes:
         selectors groups are comma separated, white space is required as a token separator
@@ -232,10 +271,10 @@ class DDOMSelectorProcessor {
 
         TODO: store the selector within the DDOM and make DDOM 'observable', when a data update occurs re-run the selector and notify any listeners
     */
-    static function process(selector:String, parent:DDOMCore = null):Array<DataNode> {
+    static function process(selector:String, parent:DDOMInst = null):Array<DataNode> {
         if(parent == null) { // null parent means use all data
-            parent = new DDOMCore("");
-            parent.nodes = DDOMCore.dataByType.flatten();
+            parent = new DDOMInst("");
+            parent.nodes = DDOMStatic.dataByType.flatten();
         }
 
         var results:Array<DataNode> = [];

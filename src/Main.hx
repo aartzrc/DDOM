@@ -1,6 +1,11 @@
+import DDOM.DDOMStatic;
+
 class Main {
 	static function main() {
-        //basicTests();
+        DDOMStatic.on("*", (e, ddom) -> {
+            trace(e + " : " + ddom);
+        });
+        basicTests();
         selectorTests();
 	}
 
@@ -34,6 +39,7 @@ class Main {
         trace(DDOM.select("*")[1]); // Array access*/
         trace(DDOM.select("*:gt(2)")); // Range select
         trace(DDOM.select("session cart")); // Carts in session
+        trace(DDOM.select("*:gt(2)").sub("session")); // Test sub-select
     }
 
     static function basicTests() {
