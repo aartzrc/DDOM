@@ -12,11 +12,18 @@ class DDOMStore extends DDOMEventManager {
     var dataByType:Map<String, Array<DataNode>> = [];
     var dataById:Map<String, DataNode> = [];
 
-    // Note: selector consolidation might work, but the cascade effects of appending each parent selector group with all child selector groups gets pretty heavy
-    // The biggest problem is 'detached' nodes that use a sub() to get selections, there is no way to register them at the root level of DDOMStore without an id
-    // For now, make the client/server sync system only work at the DDOMStore level, and only select() called from here will stay in sync at the server
-    // Any way to drill up the chain during sub() and see if it was original a Store.select() and then auto-attach?
-    // Any way to auto-attach if a sub chain becomes attached?
+    /* 
+    Note: selector consolidation might work, but the cascade effects of appending each parent selector group with all child selector groups gets pretty heavy (or not.. they're just comma separated strings?)
+    The biggest problem is 'detached' nodes that use a sub() to get selections, there is no way to register them at the root level of DDOMStore without an id
+    For now, make the client/server sync and selector consolidation system totally isolated from DDOMStore and only operate on events fired
+    An event for 'select' will need to happen
+    
+    Any way to drill up the chain during sub() and see if it was original a Store.select() and then auto-attach?
+    Any way to auto-attach if a sub chain becomes attached? 
+    Sort of.. whenever create() is called the Store will attach to events which can be passed off to the server
+    If the client has assigned an 'id' to the DDOM instance, then it can be attached
+    If the server assigns an 'id' it can be mapped back to the DDOM instance which allows it to be attached
+    */
 
     public function new() {
         // New/empty repo, extend DDOMStore to attach to alternate backing data
