@@ -92,27 +92,38 @@ class DDOMInst extends DDOMEventManager {
         return nodes.length;
     }
 
+    /**
+     * Updates all nodes in this DDOM with the name.value
+     * @param name 
+     * @param value 
+     */
     function fieldWrite<T>(name:String, value:T) {
         if(nodes.length == 0) return;
-        var node = nodes[0];
-        // Lock down `id` value, must be a String and non-duplicate in the current data set
-        if(name == "id") {
-            if(!Std.is(value, String)) throw "`DDOM.id` must be a `String`";
-            var newId:String = cast value;
-            var prevId:String = cast nodes.fields.field("id");
-            if(newId != prevId) {
-                if(store.dataById.exists(newId)) throw "Unable to set `DDOM.id`, duplicate id value found";
-                if(prevId != null) store.dataById.remove(prevId);
-                store.dataById.set(newId, node);
+        for(node in nodes) {
+            // Lock down `id` value, must be a String
+            if(name == "id") {
+                if(!Std.is(value, String)) throw "`DDOM.id` must be a `String`";
+                var newId:String = cast value;
+                var prevId:String = cast nodes.fields.field("id");
+                if(newId != prevId) {
+                    if(prevId != null) store.dataById[prevId].remove(node);
+                    if(!store.dataById.exists(newId)) store.dataById[newId] = [];
+                    store.dataById[newId].push(node);
+                }
             }
+            // Verify type remains the same
+            var f = node.fields.field(name);
+            if(f != null && !Std.is(value, Type.getClass(f))) throw "Data type must remain the same for field `" + name + "` : " + f + " (" + Type.getClass(f).getClassName() + ") != " + value + " (" + Type.getClass(value).getClassName() + ")";
+            node.fields.setField(name, value);
         }
-        // Verify type remains the same
-        var f = node.fields.field(name);
-        if(f != null && !Std.is(value, Type.getClass(f))) throw "Data type must remain the same for field `" + name + "` : " + f + " (" + Type.getClass(f).getClassName() + ") != " + value + " (" + Type.getClass(value).getClassName() + ")";
-        node.fields.setField(name, value);
         fire(FieldChanged(name, value));
     }
 
+    /**
+     * Gets first node and returns the field value (or null if no data available)
+     * @param name 
+     * @return T
+     */
     function fieldRead<T>(name:String):T {
         if(nodes.length == 0) return null;
         return nodes[0].fields.field(name);

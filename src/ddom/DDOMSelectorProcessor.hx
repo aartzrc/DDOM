@@ -12,7 +12,7 @@ class DDOMSelectorProcessor {
     /* Notes:
         selectors groups are comma separated, white space is required as a token separator
         selectors can be chained (not sure how yet...)
-        # id
+        # id - TODO: allow multiple instances with same id and add type selector eg: "session#id", this is needed for databases which can have duplicate ids across different types
         < parent - eg: "user < *" will get all parents of the user type, "user < session" will get the sessions of all users - css uses ! token, but it's wacky so I decided on < instead
         > direct child - eg: "user > session" will get sessions of all users, "user! > cart! > product[name=paper]" will get users with a cart that have products with name "paper"
         * all - eg: "*[name=paper]" will get any type with a name "paper"

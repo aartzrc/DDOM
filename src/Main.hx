@@ -10,7 +10,7 @@ class Main {
             count++;
             if(count > 2) store.off();
         });
-        //basicTests(store);
+        basicTests(store);
         selectorTests(store);
 
         //tokenizerTests();

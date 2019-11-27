@@ -10,7 +10,7 @@ import ddom.DDOM.DataNode;
 class DDOMStore extends DDOMEventManager {
     // Lookup maps, for speed mostly - this could be handled with one large Array
     var dataByType:Map<String, Array<DataNode>> = [];
-    var dataById:Map<String, DataNode> = [];
+    var dataById:Map<String, Array<DataNode>> = [];
 
     /* 
     Note: selector consolidation might work, but the cascade effects of appending each parent selector group with all child selector groups gets pretty heavy (or not.. they're just comma separated strings?)
@@ -23,6 +23,8 @@ class DDOMStore extends DDOMEventManager {
     Sort of.. whenever create() is called the Store will attach to events which can be passed off to the server
     If the client has assigned an 'id' to the DDOM instance, then it can be attached
     If the server assigns an 'id' it can be mapped back to the DDOM instance which allows it to be attached
+    If 2 instances of the same type and id are sent to the server, they would 'merge' and become a single instance - any way to handle that?
+
     */
 
     public function new() {
