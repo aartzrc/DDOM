@@ -7,7 +7,7 @@ using Lambda;
 using Reflect;
 using StringTools;
 
-@:allow(ddom.DDOMInst)
+@:allow(ddom.DDOMInst, ddom.DDOMSelector)
 class DDOMSelectorProcessor {
     /* Notes:
         selectors groups are comma separated, white space is required as a token separator
@@ -22,7 +22,7 @@ class DDOMSelectorProcessor {
 
         TODO: store the selector within the DDOM and make DDOM 'observable', when a data update occurs re-run the selector and notify any listeners
     */
-    public static function tokenize(selector:String):Array<SelectorGroup> {
+    static function tokenize(selector:String):DDOMSelector {
         function processGroup(sel:String) {
             var tokens:Array<SelectorToken> = [];
             var tokenChunks = sel.split(" ");
@@ -97,99 +97,133 @@ class DDOMSelectorProcessor {
                     }
                 }
             }
-
             return tokens;
         }
-        return selector.split(",").map((sel) -> {tokens:processGroup(sel)});
+        return selector.split(",").map((sel) -> {tokens:processGroup(sel)}).filter((sel) -> sel.tokens.length > 0);
     }
 
-    static function process(store:DDOMStore, selector:String, parent:DDOMInst = null):Array<DataNode> {
+    static function detokenize(selector:DDOMSelector):String {
+        var groups:Array<SelectorGroup> = selector;
+
+        function detokenizeFilter(filter:TokenFilter) {
+            var filterDetokenized = "";
+            switch(filter) {
+                case All:
+                    // Pass through
+                case Eq(pos):
+                    filterDetokenized += ":eq(" + pos + ")";
+                case Gt(pos):
+                    filterDetokenized += ":gt(" + pos + ")";
+                case Lt(pos):
+                    filterDetokenized += ":lt(" + pos + ")";
+            }
+            return filterDetokenized;
+        }
+
+        var detokenized:Array<String> = [];
+        for(group in groups) {
+            var groupDetokenized:Array<String> = [];
+            for(token in group.tokens) {
+                switch(token) {
+                    case All(filter):
+                        groupDetokenized.push("*" + detokenizeFilter(filter));
+                    case Id(id):
+                        groupDetokenized.push("#" + id);
+                    case OfType(type, filter):
+                        groupDetokenized.push(type + detokenizeFilter(filter));
+                    case Children(type, filter):
+                        groupDetokenized.push("> " + type + detokenizeFilter(filter));
+                    case Parents(type, filter):
+                        groupDetokenized.push("< " + type + detokenizeFilter(filter));
+                    case Descendants(type, filter):
+                        groupDetokenized.push(type + detokenizeFilter(filter));
+                }
+            }
+            detokenized.push(groupDetokenized.join(" "));
+        }
+        return detokenized.join(",");
+    }
+
+    static function process(store:DDOMStore, selector:DDOMSelector, parent:DDOMInst = null):Array<DataNode> {
         if(parent == null) { // null parent means use all data
             parent = new DDOMInst(store, "");
             parent.nodes = store.dataByType.flatten();
         }
 
         var results:Array<DataNode> = [];
-
-        for(sel in selector.split(",")) { // Break into selector groups
-            for(n in processTokens(sel.split(" "), parent.nodes)) // Break selector into tokens and process
+        
+        var groups:Array<SelectorGroup> = selector;
+        for(group in groups)
+            for(n in processGroup(group, parent.nodes)) // Process each group/batch of tokens
                 if(results.indexOf(n) == -1) results.push(n); // Merge results of all selector groups
-        }
 
         return results;
     }
 
-    static function processTokens(tokens:Array<String>, allNodes:Array<DataNode>):Array<DataNode> {
-        var resultNodes:Array<DataNode> = [];
-        var prevType = null;
-        for(t in tokens) {
-            t = t.trim();
-            // Ignore empties
-            if(t.length > 0) {
-                // First char is the main token
-                switch(t.charAt(0)) {
-                    case "*": // all selector
-                        resultNodes = [];
-                        for(n in allNodes)
-                            if(resultNodes.indexOf(n) == -1) resultNodes.push(n);
-                        allNodes = resultNodes;
-                        t = t.substr(1);
-                    case "#": // id selector
-                        resultNodes = [];
-                        var id = t.substr(1);
-                        var n = allNodes.find((n) -> n.fields.field("id") == id );
-                        if(n != null && resultNodes.indexOf(n) == -1) resultNodes.push(n);
-                        allNodes = resultNodes;
-                        t = t.substr(id.length + 1);
-                    case ">": // direct children selector
-                        allNodes = [];
-                        for(n in resultNodes) for(c in n.children) if(allNodes.indexOf(c) == -1) allNodes.push(c);
-                        resultNodes = [];
-                        t = t.substr(1);
-                    case "<": // parent selector
-                        allNodes = [];
-                        for(n in resultNodes) for(p in n.parents) if(allNodes.indexOf(p) == -1) allNodes.push(p);
-                        resultNodes = [];
-                        t = t.substr(1);
-                    case _: // Default to type selection
-                        var type = t;
-                        // Check for sub tokens
-                        var st1 = t.indexOf("[");
-                        var st2 = t.indexOf(":");
-                        if(st1 > 0) {
-                            type = type.substr(0, st1);
-                        } else if(st2 > 0) {
-                            type = type.substr(0, st2);
-                        }
-                        if(prevType != null) {
-                            resultNodes = recurseChildrenByType(allNodes, type, [], []);
-                        } else {
-                            resultNodes = [];
-                            for(n in allNodes.filter((n) -> n.type == type))
-                                if(resultNodes.indexOf(n) == -1) resultNodes.push(n);
-                            allNodes = resultNodes;
-                        }
-                        t = t.substr(type.length);
+    static function processGroup(group:SelectorGroup, allNodes:Array<DataNode>):Array<DataNode> {
+        // TODO: allow multiple filters so can do orderBy/etc within this loop
+        function processFilter(nodes:Array<DataNode>, filter:TokenFilter) {
+            switch(filter) {
+                case All:
+                    // Pass through
+                case Eq(pos):
+                    if(pos > nodes.length) nodes = [];
+                        else nodes = [ nodes[pos] ];
+                case Gt(pos):
+                    if(pos > nodes.length) nodes = [];
+                        else nodes = [ for(i in pos ... nodes.length) nodes[i] ];
+                case Lt(pos):
+                    if(pos > 0) {
+                        if(pos > nodes.length) pos = nodes.length;
+                        nodes = [ for(i in 0 ... pos) nodes[i] ];
+                    }
+            }
+            return nodes;
+        }
 
-                        prevType = type;
+        function getDescendants(nodes:Array<DataNode>, type:String, found:Array<DataNode>, searched:Array<DataNode>):Array<DataNode> {
+            for(n in nodes) {
+                if(searched.indexOf(n) == -1) {
+                    searched.push(n);
+                    if(n.type == type) if(found.indexOf(n) == -1) found.push(n);
+                    getDescendants(n.children, type, found, searched);
                 }
-                // Check for 'sub' tokens
-                if(t.length > 0)
-                    resultNodes = processSubToken(t, resultNodes);
             }
+            return found;
         }
-        return resultNodes;
-    }
 
-    static function recurseChildrenByType(allNodes:Array<DataNode>, type:String, found:Array<DataNode>, searched:Array<DataNode>):Array<DataNode> {
-        for(n in allNodes) {
-            if(searched.indexOf(n) == -1) {
-                if(n.type == type)
-                    if(found.indexOf(n) == -1) found.push(n);
-                recurseChildrenByType(n.children, type, found, searched);
+        // This handles in-memory data only - a SQL backed system could/should generate a query instead to request data
+        // Each token pass will filter/update the allNodes array with the current data set
+        var tokenQueue = group.tokens.copy();
+        while(tokenQueue.length > 0 && allNodes.length > 0) {
+            var token = tokenQueue.shift();
+            switch(token) {
+                case All(filter):
+                    allNodes = processFilter(allNodes, filter);
+                case Id(id):
+                    allNodes = [ allNodes.find((n) -> n.fields.field("id") == id) ];
+                case OfType(type, filter):
+                    allNodes = processFilter(allNodes.filter((n) -> n.type == type), filter);
+                case Children(type, filter):
+                    var childNodes:Array<DataNode> = [];
+                    if(type == "*")
+                        for(n in allNodes) for(c in n.children) if(childNodes.indexOf(c) == -1) childNodes.push(c);
+                    else
+                        for(n in allNodes) for(c in n.children.filter((c) -> c.type == type)) if(childNodes.indexOf(c) == -1) childNodes.push(c);
+                    allNodes = processFilter(childNodes, filter);
+                case Parents(type, filter):
+                    var parentNodes:Array<DataNode> = [];
+                    if(type == "*")
+                        for(n in allNodes) for(p in n.parents) if(parentNodes.indexOf(p) == -1) parentNodes.push(p);
+                    else
+                        for(n in allNodes) for(p in n.parents.filter((p) -> p.type == type)) if(parentNodes.indexOf(p) == -1) parentNodes.push(p);
+                    allNodes = processFilter(parentNodes, filter);
+                case Descendants(type, filter):
+                    allNodes = processFilter(getDescendants(allNodes, type, [], []), filter);
             }
         }
-        return found;
+
+        return allNodes;
     }
 
     static function processSubToken(subToken:String, nodes:Array<DataNode>) {
@@ -221,6 +255,14 @@ class DDOMSelectorProcessor {
         }
         return nodes;
     }
+}
+
+@:forward(length)
+abstract DDOMSelector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<SelectorGroup> {
+    @:from
+    static public function fromString(selector:String) return DDOMSelectorProcessor.tokenize(selector);
+    @:to
+    public function toString() return DDOMSelectorProcessor.detokenize(this);
 }
 
 typedef SelectorGroup = {

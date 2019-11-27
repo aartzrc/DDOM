@@ -1,26 +1,29 @@
 package ddom;
 
+import ddom.DDOMSelectorProcessor;
+
 using Lambda;
 using Reflect;
 using Type;
 
 @:allow(ddom.DDOM, ddom.DDOMIterator, ddom.DDOMSelectorProcessor, ddom.DDOMStore)
-class DDOMInst {
+class DDOMInst extends DDOMEventManager {
     var store:DDOMStore;
     var nodes:Array<DataNode>; // If parent and nodes are null, the selector will pull from the root data set
-    var selector:{selector:String, parent:DDOM};
-    function new(store:DDOMStore, selector:String = "*", parent:DDOM = null) {
+    var selector:DDOMSelector;
+    function new(store:DDOMStore, selector:DDOMSelector, parent:DDOMInst = null) {
+        super();
         this.store = store;
-        this.selector = {selector:selector,parent:parent};
-        // Special case, ignore empty string selector for use when we do not want to populate the nodes directly
-        if(selector != "") 
+        this.selector = selector; // Do not do selector chaining, multi-selectors/etc just get too complex - use the event system to chain updates
+        // Special case, ignore empty selector for use when we do not want to populate the nodes directly
+        if(selector.length > 0)
             this.nodes = DDOMSelectorProcessor.process(store, selector, parent);
         else
             this.nodes = [];
     }
 
     // TODO: on/off per DDOMInst - any way to consolidate the selectors?
-    // maybe each 'sub' call can trace up the stack to the root 'select' so they can stay isolated, then cache these at DDOMStore. a selector can't change once it is applied to a DDOMInst, so this should be solid
+    // TODO: auto-attach/detach from parent during on/off so child selectors can properly fire when parents change
 
     /**
      * Returns all unique children of the nodes available in this DDOM
@@ -42,15 +45,18 @@ class DDOMInst {
         var coreChild:DDOMInst = cast child;
         // Verify the children are part of the data set
         if(coreChild.nodes.exists((n) -> store.dataByType[n.type].indexOf(n) == -1)) throw "Detached DDOM, unable to appendChild";
+        var changed = false;
         for(node in nodes) {
             for(cn in coreChild.nodes) {
                 if(node.children.indexOf(cn) == -1) {
                     cn.parents.push(node);
                     node.children.push(cn);
-                    // TODO: fire events
+                    changed = true;
                 }
             }
         }
+        if(changed) fire(ResultChanged(this));
+        return changed;
     }
 
     /**
@@ -59,13 +65,14 @@ class DDOMInst {
      */
     public function remove(child:DDOM) {
         var coreChild:DDOMInst = cast child;
+        var changed = false;
         for(node in nodes) {
             for(cn in coreChild.nodes) {
-                trace(cn);
-                node.children.remove(cn);
-                // TODO: fire events
+                if(node.children.remove(cn)) changed = true;
             }
         }
+        if(changed) fire(ResultChanged(this));
+        return changed;
     }
 
     /**
@@ -103,7 +110,7 @@ class DDOMInst {
         var f = node.fields.field(name);
         if(f != null && !Std.is(value, Type.getClass(f))) throw "Data type must remain the same for field `" + name + "` : " + f + " (" + Type.getClass(f).getClassName() + ") != " + value + " (" + Type.getClass(value).getClassName() + ")";
         node.fields.setField(name, value);
-        // TODO: fire events
+        fire(FieldChanged(name, value));
     }
 
     function fieldRead<T>(name:String):T {
@@ -183,4 +190,6 @@ class DataNode {
 enum DDOMEvent {
     Created(ddom:DDOM);
     Deleted(ddom:DDOM);
+    ResultChanged(ddom:DDOM);
+    FieldChanged(field:String, value:Any);
 }

@@ -13,3 +13,11 @@ delete()
 most other operations become combinations of these basic calls
 
 it looks like field access can be overridden: @:op(a.b) - https://haxe.org/manual/types-abstract-operator-overloading.html
+
+11/26/2019:  
+coming along well, things to build out:  
+DDOM to typedef (or graphql), and have the typedefs provide code completion and type safety  
+An async client side updater that can call to a server  
+A server sync reader that can pull from a standard database  
+Allow multiple filters per token?  
+Quick way to generated unit tests for to/from string tokenization, iterate over all enums combinations and verify the go to/from string properly  

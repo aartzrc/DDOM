@@ -4,19 +4,24 @@ import ddom.DDOMSelectorProcessor;
 class Main {
 	static function main() {
         var store = new DDOMStore();
-        store.on(null, (e) -> {
+        var count = 0;
+        store.on((e) -> {
             trace(e);
+            count++;
+            if(count > 2) store.off();
         });
         //basicTests(store);
-        //selectorTests(store);
+        selectorTests(store);
 
-        tokenizerTests();
+        //tokenizerTests();
 	}
 
     static function tokenizerTests() {
-        trace(DDOMSelectorProcessor.tokenize("session cart:gt(2)"));
+        var selector:DDOMSelector = "session *:gt(2) > product[name=paper]";
+        trace(selector);
+        /*trace(DDOMSelectorProcessor.tokenize("session cart:gt(2)"));
         trace(DDOMSelectorProcessor.tokenize("*"));
-        trace(DDOMSelectorProcessor.tokenize("*:gt(2)"));
+        trace(DDOMSelectorProcessor.tokenize("*:gt(2)"));*/
     }
 
     static function selectorTests(store:DDOMStore) {
@@ -49,7 +54,7 @@ class Main {
         trace(store.select("*")[1]); // Array access*/
         trace(store.select("*:gt(2)")); // Range select
         trace(store.select("session cart")); // Carts in session
-        trace(store.select("*:gt(2)").sub("session")); // Test sub-select
+        trace(store.select("user").sub("cart")); // Test sub-select
     }
 
     static function basicTests(store:DDOMStore) {
