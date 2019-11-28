@@ -4,10 +4,11 @@ import ddom.DDOM;
 import ddom.DDOM.DataNode;
 
 /**
- * This is the root level repository of data, it provides some basic lookups and events. Extend/override to handle backing data sources.
+ * A data cache that provides a general purpose repository and handles node creation and root-level selection.
+ * TODO: Add an event log here that can be used for async updates and event generation (DDOMInst doesn't do events directly)
  */
 @:allow(ddom.DDOMInst, ddom.DDOMSelectorProcessor)
-class DDOMStore extends DDOMEventManager {
+class Cache implements ISelectable {
     // Lookup maps, for speed mostly - this could be handled with one large Array
     var dataByType:Map<String, Array<DataNode>> = [];
     var dataById:Map<String, Array<DataNode>> = [];
@@ -48,10 +49,7 @@ class DDOMStore extends DDOMEventManager {
 
     */
 
-    public function new() {
-        // New/empty repo, extend DDOMStore to attach to alternate backing data
-        super();
-    }
+    public function new() {}
 
 	public function create(type:String):DDOM {
         var dn = new DataNode(type);
@@ -63,14 +61,6 @@ class DDOMStore extends DDOMEventManager {
         fire(Created(ddom));
         // TODO: attach to the new ddom and forward events
         return ddom;
-    }
-
-    public function getById(id:String):DDOM {
-        return new DDOMInst(this, "#" + id);
-    }
-
-    public function getByType(type:String):DDOM {
-        return new DDOMInst(this, type);
     }
 
     /**

@@ -1,40 +1,60 @@
 package ddom;
 
-import ddom.DDOMSelectorProcessor;
+import ddom.SelectorProcessor;
 
 using Lambda;
 using Reflect;
 using Type;
 
-@:allow(ddom.DDOM, ddom.DDOMIterator, ddom.DDOMSelectorProcessor, ddom.DDOMStore)
-class DDOMInst extends DDOMEventManager {
-    var store:DDOMStore;
-    var nodes:Array<DataNode>; // If parent and nodes are null, the selector will pull from the root data set
-    var selector:DDOMSelector;
-    function new(store:DDOMStore, selector:DDOMSelector, parent:DDOMInst = null) {
-        super();
-        this.store = store;
-        this.selector = selector; // Do not do selector chaining, multi-selectors/etc just get too complex - use the event system to chain updates
-        // Special case, ignore empty selector for use when we do not want to populate the nodes directly
-        if(selector.length > 0)
-            this.nodes = DDOMSelectorProcessor.process(store, selector, parent);
-        else
-            this.nodes = [];
-    }
-
-    // TODO: on/off per DDOMInst - any way to consolidate the selectors?
-    // TODO: auto-attach/detach from parent during on/off so child selectors can properly fire when parents change
+@:allow(ddom.DDOM, ddom.DDOMIterator, ddom.SelectorProcessor)
+class DDOMInst implements ISelectable {
+    var selector:Selector; // The selector for this DDOM instance
+    var selectables:Array<ISelectable>; // Selectables that will be called to generate the nodes array
+    var nodes(get,never):Array<DataNode>;
+    var _nodes:Array<DataNode>; // Nodes that have been 'selected' via the data cascade
+    var _coreNodes:Array<DataNode>; // Nodes that have been 'created' - these are a true data instance
 
     /**
-     * Returns all unique children of the nodes available in this DDOM
-     * @return DDOM
+     * selectables array can include any external data sources or other DDOM instances, selector operates on the data set of the of all the selectables
+     * @param selectables 
+     * @param selector 
      */
-    public function children():DDOM {
-        return new DDOMInst(store, "* > *", this); // Get all direct children of nodes in this DDOM
+    function new(selectables:Array<ISelectable> = null, selector:Selector = null) {
+        this.selectables = selectables != null ? selectables : [];
+        this.selector = selector != null ? selector : "*";
     }
 
-    public function parents():DDOM {
-        return new DDOMInst(store, "* < *", this); // Get all parents of nodes in this DDOM
+    function get_nodes() {
+        // Lazy-load the nodes, for efficiency but also so data can be 'injected' before first call to get_nodes (create() method relies on this)
+        if(_nodes == null) _nodes = _coreNodes != null ? _coreNodes.concat(SelectorProcessor.process(selectables, selector)) : SelectorProcessor.process(selectables, selector);
+        return _nodes;
+    }
+
+    /**
+     * Create a new 'detached' DDOM instance
+     * @param type 
+     * @return DDOM
+     */
+    public static function create(type:String):DDOM {
+        var ddom = new DDOMInst();
+        ddom._coreNodes = [new DataNode(type)];
+        return ddom;
+    }
+
+    /**
+     * Helper to get children - maps directly to "* > *" selector
+     * @return DDOM
+     */
+    public function children(type:String = "*"):DDOM {
+        return select("* > " + type); // Get all direct children of nodes in this DDOM
+    }
+
+    /**
+     * Helper to get parents - maps directly to "* < *" selector
+     * @return DDOM
+     */
+    public function parents(type:String = "*"):DDOM {
+        return select("* < " + type); // Get all parents of nodes in this DDOM
     }
 
     /**
@@ -43,49 +63,42 @@ class DDOMInst extends DDOMEventManager {
      */
     public function append(child:DDOM) {
         var coreChild:DDOMInst = cast child;
-        // Verify the children are part of the data set
-        if(coreChild.nodes.exists((n) -> store.dataByType[n.type].indexOf(n) == -1)) throw "Detached DDOM, unable to appendChild";
-        var changed = false;
         for(node in nodes) {
             for(cn in coreChild.nodes) {
                 if(node.children.indexOf(cn) == -1) {
                     cn.parents.push(node);
                     node.children.push(cn);
-                    changed = true;
                 }
             }
         }
-        if(changed) fire(ResultChanged(this));
-        return changed;
+        return this;
     }
 
     /**
-     * Remove/detach all the children in the provided DDOM from all nodes in this DDOM - does NOT delete the child
+     * Remove/detach all the children in the provided DDOM from all nodes in this DDOM, if child is null then remove THIS DDOM from it's parents
      * @param child 
      */
-    public function remove(child:DDOM) {
-        var coreChild:DDOMInst = cast child;
-        var changed = false;
-        for(node in nodes) {
-            for(cn in coreChild.nodes) {
-                if(node.children.remove(cn)) changed = true;
+    public function remove(child:DDOM = null) {
+        if(child == null) { // Detach myself from all parents
+            for(node in nodes) {
+                for(pn in node.parents)
+                    pn.children.remove(node);
+                node.parents = [];
             }
+            selectables = []; // No parents to request data from
+            _nodes = null; // Reset the cache
+         } else { // Detach a child batch
+            var coreChild:DDOMInst = cast child;
+            for(node in nodes) {
+                for(cn in coreChild.nodes) {
+                    node.children.remove(cn);
+                    cn.parents.remove(node);
+                }
+            }
+            coreChild.selectables.remove(this); // Remove myself from the child lookup
+            coreChild._nodes = null; // Reset the child cache
         }
-        if(changed) fire(ResultChanged(this));
-        return changed;
-    }
-
-    /**
-     * Detach from all parents and remove from the lookup tables - this becomes a detached DDOM and cannot be used again!
-     */
-    public inline function delete() {
-        for(pn in parents()) pn.remove(this);
-        for(node in nodes) {
-            var id = node.fields.field("id");
-            if(id != null) store.dataById.remove(id);
-            store.dataByType[node.type].remove(node);
-            store.fire(Deleted(this));
-        }
+        return this;
     }
 
     public inline function size() {
@@ -98,25 +111,7 @@ class DDOMInst extends DDOMEventManager {
      * @param value 
      */
     function fieldWrite<T>(name:String, value:T) {
-        if(nodes.length == 0) return;
-        for(node in nodes) {
-            // Lock down `id` value, must be a String
-            if(name == "id") {
-                if(!Std.is(value, String)) throw "`DDOM.id` must be a `String`";
-                var newId:String = cast value;
-                var prevId:String = cast nodes.fields.field("id");
-                if(newId != prevId) {
-                    if(prevId != null) store.dataById[prevId].remove(node);
-                    if(!store.dataById.exists(newId)) store.dataById[newId] = [];
-                    store.dataById[newId].push(node);
-                }
-            }
-            // Verify type remains the same
-            var f = node.fields.field(name);
-            if(f != null && !Std.is(value, Type.getClass(f))) throw "Data type must remain the same for field `" + name + "` : " + f + " (" + Type.getClass(f).getClassName() + ") != " + value + " (" + Type.getClass(value).getClassName() + ")";
-            node.fields.setField(name, value);
-        }
-        fire(FieldChanged(name, value));
+        for(node in nodes) node.fields.setField(name, value);
     }
 
     /**
@@ -130,47 +125,38 @@ class DDOMInst extends DDOMEventManager {
     }
 
     function arrayRead(n:Int):DDOM {
-        return new DDOMInst(store, "*:eq(" + n + ")"); // Get all, then choose the 'n'th item
+        return new DDOMInst([this], "*:eq(" + n + ")"); // Get all, then choose the 'n'th item
     }
 
     public function iterator():Iterator<DDOM> {
-        return new DDOMIterator(store, nodes);
+        return new DDOMIterator(this);
     }
 
     public function toString() {
         return Std.string(nodes);
     }
 
-    /**
-     * Select a sub-set of this DDOM
-     * @param selector 
-     * @return DDOM
-     */
-    public function sub(selector:String):DDOM {
-        return new DDOMInst(store, selector, this);
+    public function select(selector:Selector):DDOM {
+        return new DDOMInst([this], selector);
     }
 }
 
 @:allow(ddom.DDOMInst)
 class DDOMIterator {
     var i:Int = 0;
-    var nodes:Array<DataNode>;
-    var store:DDOMStore;
-    function new(store:DDOMStore, nodes:Array<DataNode>) {
-        this.store = store;
-        this.nodes = nodes;
+    var ddom:DDOMInst;
+    function new(ddom:DDOMInst) {
+        this.ddom = ddom;
     }
     public function hasNext() {
-        return i < nodes.length;
+        return i < ddom.nodes.length;
     }
     public function next() {
-        var ddom = new DDOMInst(store, "");
-        ddom.nodes.push(nodes[i++]);
-        return ddom;
+        return ddom.arrayRead(i++);
     }
 }
 
-@:forward(iterator, append, children, size, delete, remove, sub)
+@:forward(iterator, append, children, parents, size, remove, select)
 abstract DDOM(DDOMInst) from DDOMInst to DDOMInst {
     @:op(a.b)
     public function fieldWrite<T>(name:String, value:T) this.fieldWrite(name, value);
@@ -178,10 +164,12 @@ abstract DDOM(DDOMInst) from DDOMInst to DDOMInst {
     public function fieldRead<T>(name:String):T return this.fieldRead(name);
     @:op([]) 
     public function arrayRead(n:Int) return this.arrayRead(n);
+
+    public static function create(type:String):DDOM return DDOMInst.create(type);
 }
 
 // This is the actual data item, DDOM wraps this
-@:allow(ddom.DDOMInst, ddom.DDOMSelectorProcessor, ddom.DDOMStore)
+@:allow(ddom.DDOMInst, ddom.SelectorProcessor)
 class DataNode {
     var type:String;
     var fields = {};
@@ -196,11 +184,4 @@ class DataNode {
         var id = fields.field("id");
         return "{type:" + type + (id != null ? ",id:" + id : "") + "}";
     }
-}
-
-enum DDOMEvent {
-    Created(ddom:DDOM);
-    Deleted(ddom:DDOM);
-    ResultChanged(ddom:DDOM);
-    FieldChanged(field:String, value:Any);
 }

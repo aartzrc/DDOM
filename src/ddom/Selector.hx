@@ -8,7 +8,7 @@ using Reflect;
 using StringTools;
 
 @:forward(length)
-abstract DDOMSelector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<SelectorGroup> {
+abstract Selector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<SelectorGroup> {
     @:from
     static public function fromString(selector:String) return tokenize(selector);
     @:to
@@ -27,7 +27,7 @@ abstract DDOMSelector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<S
 
         TODO: store the selector within the DDOM and make DDOM 'observable', when a data update occurs re-run the selector and notify any listeners
     */
-    static function tokenize(selector:String):DDOMSelector {
+    static function tokenize(selector:String):Selector {
         function processGroup(sel:String) {
             var tokens:Array<SelectorToken> = [];
             var tokenChunks = sel.split(" ");
@@ -83,7 +83,8 @@ abstract DDOMSelector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<S
                         case "*": // all selector
                             tokens.push(All(processFilter(t.substr(1))));
                         case "#": // id selector
-                            tokens.push(Id(t.substr(1)));
+                            var idSplit = splitType(t.substr(1));
+                            tokens.push(Id(idSplit.type, processFilter(idSplit.filter)));
                         case ">": // direct children selector
                             // get child type
                             var type = splitType(tokenChunks.shift());
@@ -104,10 +105,10 @@ abstract DDOMSelector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<S
             }
             return tokens;
         }
-        return selector.split(",").map((sel) -> {tokens:processGroup(sel)}).filter((sel) -> sel.tokens.length > 0);
+        return selector.split(",").map((sel) -> processGroup(sel)).filter((sel) -> sel.length > 0);
     }
 
-    static function detokenize(selector:DDOMSelector):String {
+    static function detokenize(selector:Selector):String {
         var groups:Array<SelectorGroup> = selector;
 
         function detokenizeFilter(filter:TokenFilter) {
@@ -128,12 +129,12 @@ abstract DDOMSelector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<S
         var detokenized:Array<String> = [];
         for(group in groups) {
             var groupDetokenized:Array<String> = [];
-            for(token in group.tokens) {
+            for(token in group) {
                 switch(token) {
                     case All(filter):
                         groupDetokenized.push("*" + detokenizeFilter(filter));
-                    case Id(id):
-                        groupDetokenized.push("#" + id);
+                    case Id(id, filter):
+                        groupDetokenized.push("#" + id + detokenizeFilter(filter));
                     case OfType(type, filter):
                         groupDetokenized.push(type + detokenizeFilter(filter));
                     case Children(type, filter):
@@ -150,13 +151,11 @@ abstract DDOMSelector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<S
     }
 }
 
-typedef SelectorGroup = {
-    tokens:Array<SelectorToken>
-}
+typedef SelectorGroup = Array<SelectorToken>;
 
 enum SelectorToken {
     All(filter:TokenFilter);
-    Id(id:String);
+    Id(id:String, filter:TokenFilter);
     OfType(type:String, filter:TokenFilter);
     Children(type:String, filter:TokenFilter);
     Parents(type:String, filter:TokenFilter);

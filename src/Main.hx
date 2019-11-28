@@ -1,82 +1,97 @@
-import ddom.DDOMStore;
-import ddom.DDOMSelector;
+import ddom.DDOM;
+import ddom.Selector;
 
+@:access(ddom.DDOMInst)
 class Main {
 	static function main() {
-        var store = new DDOMStore();
-        var count = 0;
-        store.on((e) -> {
-            trace(e);
-            count++;
-            if(count > 2) store.off();
-        });
-        basicTests(store);
-        selectorTests(store);
+        //basicTests();
+        selectorTests();
 
         //tokenizerTests();
 	}
 
     static function tokenizerTests() {
-        var selector:DDOMSelector = "session *:gt(2) > product[name=paper]";
+        var selector:Selector = "session *:gt(2) > product[name=paper]";
         trace(selector);
         /*trace(DDOMSelectorProcessor.tokenize("session cart:gt(2)"));
         trace(DDOMSelectorProcessor.tokenize("*"));
         trace(DDOMSelectorProcessor.tokenize("*:gt(2)"));*/
     }
 
-    static function selectorTests(store:DDOMStore) {
+    static function selectorTests() {
         // Create some objects
-        var session = store.create("session");
+        var session = DDOM.create("session");
         session.id = "home-server";
-        var user = store.create("user");
+        var user = DDOM.create("user");
         user.id = "user-with-id";
         session.append(user);
-        var cart = store.create("cart");
+        var cart = DDOM.create("cart");
         user.append(cart);
-        var user = store.create("user");
+        var user = DDOM.create("user");
         session.append(user);
-        var cart = store.create("cart");
+        var cart = DDOM.create("cart");
         user.append(cart);
-        var user = store.create("user");
+        var user = DDOM.create("user");
         session.append(user);
         user.id = "user-without-cart";
-        var cart = store.create("cart");
+        var cart = DDOM.create("cart");
         cart.id = "cart-without-user";
 
         // Test recursive loops
         cart.append(session);
 
-        trace(store.select("*")); // Grab everything
-        /*trace(store.select("#home-server")); // Get by ID
-        trace(store.select("user,cart")); // Get by type
-        trace(store.select("user > cart")); // Carts assigned to users
-        trace(store.select("cart < user")); // Users assigned to carts
-        trace(store.select("*")[1]); // Array access*/
-        trace(store.select("*:gt(2)")); // Range select
-        trace(store.select("session cart")); // Carts in session
-        trace(store.select("user").sub("cart")); // Test sub-select
+        //trace(session.select("*")); // Grab everything
+        //trace(session.select("#home-server")); // Get by ID
+        //trace(session.children("user"));
+        //trace(session.select("* > user")); // Get by type
+        //trace(session.select("* > user,* > cart")); // Get children type - all users, no carts
+        
+        
+        
+        
+        // TODO: descendants call is not working
+        trace(session.select("* user > cart")); // Carts assigned to users
+        /*trace(session.select("cart < user")); // Users assigned to carts
+        trace(session.select("*")[1]); // Array access
+        trace(session.select("*:gt(2)")); // Range select
+        trace(session.select("session cart")); // Carts in session
+        trace(session.select("user").select("cart")); // Test sub-select*/
     }
 
-    static function basicTests(store:DDOMStore) {
+    static function basicTests() {
         // Create an obj
-		var session = store.create("session");
+		var session = DDOM.create("session");
+        trace(session);
+        /*var t:DDOMInst = cast session; // Cast to DDOMInst to break out of DDOM field read/write!
+        trace(t._nodes);
+        trace(t.nodes);*/
         session.id = "home-server";
+        trace(session.select("*"));
         // Get it by id
-        var homeSession = store.getById("home-server");
+        var homeSession = session.select("#home-server");
+        trace(homeSession);
+
+        var notFound = session.select("#badid");
+        trace(notFound);
+
         // Example that all DDOM instances are an array
         for(s in homeSession)
             trace(s.id);
         // Default to index 0 of array on direct field access
         trace(homeSession.id);
 
+        // Create a 'root' DDOM for cache usage
+        var cache = DDOM.create("cache");
         // Create another obj of same type
-        store.create("session");
+        var session2 = DDOM.create("session");
+        // Add both sessions to cache
+        cache.append(session).append(session2);
         // Get all objects of this type
-        var sessions = store.getByType("session");
-        for(s in sessions) trace(s.id);
+        var sessions = cache.children().select("session");
+        for(s in sessions) trace(s);
 
         // Create a new obj type
-        var user = store.create("user");
+        var user = DDOM.create("user");
         // This will append to both session instances
         sessions.append(user);
 
@@ -90,27 +105,15 @@ class Main {
         trace(sessions.children().size());
 
         // detach the user from the sessions
-        for(s in sessions)
-            s.remove(user);
+        user.remove();
 
         // No children
         trace(sessions.children().size());
 
         // Verify the user is available
-        trace(store.getByType("user").size());
-        
-        // Add back to verify delete works
-        homeSession.append(user);
+        trace(user);
 
-        trace(homeSession.children());
-        
-        // Fully delete the user
-        user.delete();
-
-        // Child user is gone
-        trace(homeSession.children());
-
-        // User is not longer available
-        trace(store.getByType("user").size());
+        // But it has no parents
+        trace(user.parents());
     }
 }
