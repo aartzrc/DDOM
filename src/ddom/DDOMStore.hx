@@ -11,7 +11,28 @@ class DDOMStore extends DDOMEventManager {
     // Lookup maps, for speed mostly - this could be handled with one large Array
     var dataByType:Map<String, Array<DataNode>> = [];
     var dataById:Map<String, Array<DataNode>> = [];
+    /*
+    ... start dropping the DDOM at the beginning
+    allow new DDOM(selector) instead of DDOMCache.create
 
+    Another idea:
+    change this to DDOMCache - it is only used to allow immediate responses on all selects
+    incoming data gets pushed into it via messages/events that are batches
+    then selectors are re-run and data is pushed to listening endpoints
+    event management would be simplified
+    a DDOMConnector would do the work of getting new data based on what selectors are currently running on the DDOMCache
+    the DDOMConnector could then be made async easily
+    a default DDOMConnector would replace DDOMSelectorProcessor, which would always be available on the DDOMCache if the regular connector is async
+
+    create a ISelectable interface which gets applied to DDOMCache and DDOM to keep things lined up
+    should a field be assignable to a DDOM instance? this would essentially 'name' the DDOM group and add it as a child, but I think that gets too complex, probably better to use a field to denote the child name
+    ISelectables can be 'chained', provide an array of ISelectable to a new DDOM and it will call up the stack
+    This would allow things like DDOMCache to be backed by an application logic layer, then a database back-end layer (IOC on the data system, just stick more ISelectables in between to add functionality )
+    
+    attach/detach manager should be an extension method of ISelectable? 
+    it would take the DDOMCache and selector and respond to events that modify it (re-run selector and check for changes)
+    for detached/unselectable items it would not do anything until the DDOM was selectable from the root
+    */
     /* 
     Note: selector consolidation might work, but the cascade effects of appending each parent selector group with all child selector groups gets pretty heavy (or not.. they're just comma separated strings?)
     The biggest problem is 'detached' nodes that use a sub() to get selections, there is no way to register them at the root level of DDOMStore without an id

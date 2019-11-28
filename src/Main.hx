@@ -1,5 +1,5 @@
 import ddom.DDOMStore;
-import ddom.DDOMSelectorProcessor;
+import ddom.DDOMSelector;
 
 class Main {
 	static function main() {
