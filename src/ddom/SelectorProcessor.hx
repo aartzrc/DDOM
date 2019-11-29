@@ -51,15 +51,17 @@ class SelectorProcessor {
                     case All:
                         // Pass through
                     case Eq(pos):
-                        if(pos > nodes.length) nodes = [];
+                        if(pos >= nodes.length) nodes = [];
                             else nodes = [ nodes[pos] ];
                     case Gt(pos):
                         if(pos > nodes.length) nodes = [];
-                            else nodes = [ for(i in pos ... nodes.length) nodes[i] ];
+                            else nodes = [ for(i in pos+1 ... nodes.length) nodes[i] ];
                     case Lt(pos):
                         if(pos > 0) {
                             if(pos > nodes.length) pos = nodes.length;
                             nodes = [ for(i in 0 ... pos) nodes[i] ];
+                        } else {
+                            nodes = [];
                         }
                 }
                 return nodes;
@@ -95,10 +97,12 @@ class SelectorProcessor {
                     results = processFilter(childNodes, filter);
                 case Parents(type, filter):
                     var parentNodes:Array<DataNode> = [];
-                    if(type == "*")
+                    if(type == "*") {
                         for(n in sourceNodes) for(p in n.parents) if(parentNodes.indexOf(p) == -1) parentNodes.push(p);
-                    else
-                        for(n in sourceNodes) for(p in n.parents.filter((p) -> p.type == type)) if(parentNodes.indexOf(p) == -1) parentNodes.push(p);
+                    } else {
+                        for(n in sourceNodes)
+                            for(p in n.parents.filter((p) -> p.type == type)) if(parentNodes.indexOf(p) == -1) parentNodes.push(p);
+                    }
                     results = processFilter(parentNodes, filter);
                 case Descendants(type, filter):
                     results = processFilter(getDescendants(sourceNodes, type, [], []), filter);

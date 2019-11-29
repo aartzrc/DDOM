@@ -82,6 +82,10 @@ abstract Selector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<Selec
                     switch(getCleanTokenType(t)) {
                         case "*": // all selector
                             tokens.push(All(processFilter(t.substr(1))));
+                            if(tokenChunks[0] != null && getCleanTokenType(tokenChunks[0]) == null) { // Check for 'descendants' selector
+                                var descType = splitType(tokenChunks.shift());
+                                tokens.push(Descendants(descType.type, processFilter(descType.filter)));
+                            }
                         case "#": // id selector
                             var idSplit = splitType(t.substr(1));
                             tokens.push(Id(idSplit.type, processFilter(idSplit.filter)));

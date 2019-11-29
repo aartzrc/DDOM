@@ -46,7 +46,7 @@ class DDOMInst implements ISelectable {
      * @return DDOM
      */
     public function children(type:String = "*"):DDOM {
-        return select("* > " + type); // Get all direct children of nodes in this DDOM
+        return select("> " + type); // Get all direct children of nodes in this DDOM
     }
 
     /**
@@ -54,7 +54,7 @@ class DDOMInst implements ISelectable {
      * @return DDOM
      */
     public function parents(type:String = "*"):DDOM {
-        return select("* < " + type); // Get all parents of nodes in this DDOM
+        return select("< " + type); // Get all parents of nodes in this DDOM
     }
 
     /**

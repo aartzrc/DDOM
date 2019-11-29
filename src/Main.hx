@@ -43,19 +43,22 @@ class Main {
         //trace(session.select("*")); // Grab everything
         //trace(session.select("#home-server")); // Get by ID
         //trace(session.children("user"));
-        //trace(session.select("* > user")); // Get by type
-        //trace(session.select("* > user,* > cart")); // Get children type - all users, no carts
+        //trace(session.select("> user")); // 'user' Children
+        //trace(session.select("> user,> cart")); // Get children type - should be all users, no carts
         
         
         
         
         // TODO: descendants call is not working
-        trace(session.select("* user > cart")); // Carts assigned to users
-        /*trace(session.select("cart < user")); // Users assigned to carts
-        trace(session.select("*")[1]); // Array access
-        trace(session.select("*:gt(2)")); // Range select
-        trace(session.select("session cart")); // Carts in session
-        trace(session.select("user").select("cart")); // Test sub-select*/
+        //trace(session.select("* cart")); // All carts
+        //trace(session.select("* cart < user")); // Users assigned to carts
+        //trace(session[1]); // Array access
+        //trace(session.select("*:lt(2)")); // Range select
+        //trace(session.select("session cart")); // Carts in session
+        trace(session.select("user")); // This selects 'user's from the session DDOM (no users, so this is empty)
+        trace(session.select("> user")); // Select 'user' children
+        trace(session.select("> user").select("> cart")); // Test sub-select
+        trace(session.select("> user > cart"));
     }
 
     static function basicTests() {
