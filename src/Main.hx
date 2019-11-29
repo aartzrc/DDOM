@@ -1,18 +1,44 @@
 import ddom.DDOM;
 import ddom.Selector;
+import proctrack.ProcTrackSelector;
 
 @:access(ddom.DDOMInst)
 class Main {
 	static function main() {
         //basicTests();
-        selectorTests();
+        //selectorTests();
 
         //tokenizerTests();
+        dbTests();
 	}
 
+    static function dbTests() {
+        var dbConn = new ProcTrackSelector();
+
+        // TODO: get direct query working
+        var items = dbConn.select("customer#2 > item");
+        trace(items);
+
+        // TODO: get re-select working - looks like the full token chain needs to be created and passed down?
+        /*var customer2 = dbConn.select("customer#2");
+        trace(customer2.id);
+        trace(customer2.name);
+
+        var customers = dbConn.select("customer#2,customer#3");
+        trace(customers);
+
+        var items = customer2.select("> item");
+        trace(items);*/
+
+        dbConn.dispose();
+    }
+
     static function tokenizerTests() {
-        var selector:Selector = "session *:gt(2) > product[name=paper]";
+        //var selector:Selector = "session *:gt(2) > product[name=paper]";
+        var selector:Selector = "customer#2";
         trace(selector);
+        var sa:Array<SelectorGroup> = selector;
+        for(g in sa) trace(g);
         /*trace(DDOMSelectorProcessor.tokenize("session cart:gt(2)"));
         trace(DDOMSelectorProcessor.tokenize("*"));
         trace(DDOMSelectorProcessor.tokenize("*:gt(2)"));*/

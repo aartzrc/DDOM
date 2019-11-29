@@ -38,12 +38,16 @@ abstract Selector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<Selec
                 // Check for filters
                 var st1 = sel.indexOf("[");
                 var st2 = sel.indexOf(":");
+                var stid = sel.indexOf("#");
                 if(st1 > 0) {
                     type = sel.substr(0, st1);
                     filter = sel.substr(st1);
                 } else if(st2 > 0) {
                     type = sel.substr(0, st2);
                     filter = sel.substr(st2);
+                } else if(stid > 0) {
+                    type = sel.substr(0,stid);
+                    filter = sel.substr(stid);
                 }
                 return {type:type,filter:filter};
             }
@@ -63,6 +67,8 @@ abstract Selector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<Selec
                         }
                     case "[": // attribute/field selector
                         trace("TODO: attribute selector");
+                    case "#": // id selector
+                        return Id(filter.substr(1));
                 }
 
                 // Unknown filter, return All
@@ -120,6 +126,8 @@ abstract Selector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<Selec
             switch(filter) {
                 case All:
                     // Pass through
+                case Id(id):
+                    filterDetokenized += "#" + id;
                 case Eq(pos):
                     filterDetokenized += ":eq(" + pos + ")";
                 case Gt(pos):
@@ -168,6 +176,7 @@ enum SelectorToken {
 
 enum TokenFilter {
     All;
+    Id(id:String);
     Eq(pos:Int);
     Gt(pos:Int);
     Lt(pos:Int);

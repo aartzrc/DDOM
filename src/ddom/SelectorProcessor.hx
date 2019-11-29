@@ -28,8 +28,6 @@ class SelectorProcessor {
         var newGroup = group.copy();
         var token = newGroup.pop();
 
-        //trace(token);
-
         if(token == null) { // End of the line, return the nodes of the current selectables
             var sourceNodes:Array<DataNode> = [];
             for(s in selectables) {
@@ -50,6 +48,8 @@ class SelectorProcessor {
                 switch(filter) {
                     case All:
                         // Pass through
+                    case Id(id):
+                        nodes = nodes.filter((n) -> n.fields.hasField("id") && n.fields.field("id") == id);
                     case Eq(pos):
                         if(pos >= nodes.length) nodes = [];
                             else nodes = [ nodes[pos] ];
