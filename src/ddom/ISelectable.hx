@@ -1,12 +1,12 @@
 package ddom;
 
-import ddom.DDOM;
+import ddom.Selector;
 import ddom.DDOM.DataNode;
 
 /**
- * Provides a standard interface to 'break out' of the DDOM system. Any outside data source can implement the ISelectable and 'inject' itself into DDOM.
- * DDOM only handles what is already in memory, an 'external' ISelectable cannot be injected into the middle of the DDOM system
+ * Use this interface to allow an backing data source to become selectable, an null selector means 'refresh' the DDOM
  */
 interface ISelectable {
-    public function select(selector:Selector):DDOM;
+    public function select(selector:Selector = null):DDOM;
+    private function process(selector:Selector):Array<DataNode>;
 }

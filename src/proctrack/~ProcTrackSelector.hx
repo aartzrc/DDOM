@@ -9,7 +9,7 @@ import ddom.ISelectable;
 import sys.db.Mysql;
 
 @:access(ddom.DDOMInst, ddom.DataNode)
-class ProcTrackSelector implements ISelectable {
+class ProcTrackSelector implements ISelectable { // TODO: standardize DDOM.Processor so it can be 'extended' and some basic methods overridden?
     static var defaultDB = {user:"bgp", pass:"bgp", host:"127.0.0.1", database:"proctrack"};
     var c:sys.db.Connection;
 	public function new(params : {
@@ -28,11 +28,11 @@ class ProcTrackSelector implements ISelectable {
         if(c != null) c.close();
     }
 
-    public function select(selector:Selector):DDOM {
-        return process(selector);
+    public function select(selector:Selector = null):DDOM {
+        return new DDOMInst([this], selector);
     }
 
-    function process(selector:Selector):DDOM {
+    function process(selector:Selector):Array<DataNode> {
         var results:Array<DataNode> = [];
 
         var groups:Array<SelectorGroup> = selector;
@@ -40,26 +40,31 @@ class ProcTrackSelector implements ISelectable {
             for(n in processGroup(group)) // Process each group/batch of tokens
                 if(results.indexOf(n) == -1) results.push(n); // Merge results of all selector groups
         
-        var ddom = new DDOMInst();
-        ddom._coreNodes = results;
-        return ddom;
+        return results;
+    }
+
+    function rootNodes():Array<DataNode> {
+        return [];
     }
 
     function processGroup(group:SelectorGroup):Array<DataNode> {
         var newGroup = group.copy();
         var token = newGroup.pop();
-        if(token == null) return [];
+        if(token == null) return rootNodes(); // End of the chain, start with root data nodes
 
-        var sourceNodes:Array<DataNode> = processGroup(newGroup); // Get 'parent' data
+        var sourceNodes:Array<DataNode> = processGroup(newGroup); // Drill up the selector stack to get 'parent' data
+        trace(sourceNodes);
         
         var results:Array<DataNode>;
 
         trace(token);
 
         switch(token) {
-            case OfType(type, filter):
-                results = selectOfType(type, filter);
-            /*case All(filter):
+            case OfType(type, filters):
+                results = selectOfType(type, filters);
+            /*case Children(type, filter):
+                results = selectChildren(type, filter, sourceNodes);
+            case All(filter):
                 results = processFilter(sourceNodes, filter);
             case Id(id, filter):
                 results = processFilter(sourceNodes.filter((n) -> n.fields.field("id") == id), filter);
@@ -96,16 +101,18 @@ class ProcTrackSelector implements ISelectable {
         return results;
     }
 
-    function selectOfType(type:String, filter:TokenFilter):Array<DataNode> {
+    function selectOfType(type:String, filters:Array<TokenFilter>):Array<DataNode> {
         var results:Array<DataNode> = [];
         switch(type) {
             case "customer":
                 var sql = "select * from customer";
-                switch(filter) {
-                    case All: // pass thru
-                    case Id(id):
-                        sql += " where id = '" + id + "'";
-                    case _: // Ignore for now
+                for(filter in filters) {
+                    switch(filter) {
+                        case All: // pass thru
+                        case Id(id):
+                            sql += " where id = '" + id + "'";
+                        case _: // Ignore for now
+                    }
                 }
                 var result = c.request(sql);
                 for(row in result) {
@@ -118,4 +125,28 @@ class ProcTrackSelector implements ISelectable {
         }
         return results;
     }
+
+    /*function selectChildren(type:String, filter:TokenFilter, parentNodes:Array<DataNode>):Array<DataNode> {
+        var results:Array<DataNode> = [];
+        switch(type) {
+            case "item":
+                // Only parent is 'customer'?
+                var sql = "select * from item where customer_id in (" + parentNodes.filter((pn) -> pn.type == "customer").map((pn) -> "'" + pn.fields.field("id") + "'").join(",") + ")";
+                switch(filter) {
+                    case All: // pass thru
+                    case Id(id):
+                        sql += " and id = '" + id + "'";
+                    case _: // Ignore for now
+                }
+                var result = c.request(sql);
+                for(row in result) {
+                    var dn = new DataNode(type);
+                    dn.fields = row;
+                    results.push(dn);
+                }
+            case _:
+                trace(type);
+        }
+        return results;
+    }*/
 }
