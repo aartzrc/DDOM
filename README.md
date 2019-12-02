@@ -21,3 +21,10 @@ An async client side updater that can call to a server
 A server sync reader that can pull from a standard database  
 Allow multiple filters per token?  
 Quick way to generated unit tests for to/from string tokenization, iterate over all enums combinations and verify the go to/from string properly  
+
+12/1/2019:
+mostly stable, and DB access is working (although very slow, but just needs to be reworked/optimized)
+things to figure out:
+type safety via cast, it looks like casting away from DDOM breaks field read/write so an abstract on top of DDOM then a typedef cast? yikes...
+async client to server system - extension methods attach/detach that use a base `Processor` system that responds with cached data if available and notifies a server about the attached `Selector`. The server can then respond with updates and the attached callbacks will be fired. The server needs to be smart enough to determine which selectors have real data updates, then the client just pushes them along? attached endpoint would receive new DDOMs.  
+all `DataNodes` should track their changes (events) so they can be reviewed as a transaction and sent to a data source as an update.

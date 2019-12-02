@@ -140,8 +140,8 @@ class DDOMInst extends Processor implements ISelectable {
     function arrayRead(n:Int):DDOM {
         var ddom = new DDOMInst(processors, selector.concat(".:pos(" + n + ")")); // Get all, then choose the 'n'th item
         // :pos selector works but results in a full select each time, 'faking' it by injecting into _nodes cache
-        if(n < 0 || n >= _nodes.length) ddom._nodes = [];
-            ddom._nodes = [_nodes[n]];
+        if(n < 0 || n >= nodes.length) ddom._nodes = [];
+            ddom._nodes = [nodes[n]];
         return ddom;
     }
 
@@ -180,7 +180,7 @@ class DDOMIterator {
 }
 
 @:forward(iterator, append, children, parents, size, remove, select)
-abstract DDOM(DDOMInst) from DDOMInst to DDOMInst {
+abstract DDOM(DDOMInst) from DDOMInst #if debug to DDOMInst #end {
     @:op(a.b)
     public function fieldWrite<T>(name:String, value:T) this.fieldWrite(name, value);
     @:op(a.b)
@@ -192,7 +192,7 @@ abstract DDOM(DDOMInst) from DDOMInst to DDOMInst {
 }
 
 // This is the actual data item, DDOM wraps this
-@:allow(ddom.DDOMInst, ddom.Processor)
+@:allow(ddom.DDOM, ddom.DDOMInst, ddom.Processor, ddom.DataNodeAccessor)
 class DataNode {
     var type:String;
     var fields = {};
@@ -208,7 +208,7 @@ class DataNode {
         var fnames = fields.fields();
         fnames.remove("id");
         var out = fnames.map((n) -> n + ":" + fields.field(n)).join(",");
-        return "{type:" + type + (id != null ? ",id:" + id : "") + (out.length > 0 ? " " + out : "") + "}";
+        return "{type:" + type + (id != null ? ",id:" + id : "") + (out.length > 0 ? " => " + out : "") + "}";
     }
 }
 
@@ -242,48 +242,72 @@ class Processor {
         var sourceNodes:Array<DataNode> = processGroup(newGroup); // Drill up the selector stack to get 'parent' data
                  
         var results:Array<DataNode>;
-
+        trace(token);
         switch(token) {
             case OfType(type, filters):
-                results = selectOfType(type, filters, sourceNodes);
-            case Children(type, filter):
-                var childNodes:Array<DataNode> = [];
-                if(type == "*") {
-                    for(n in sourceNodes) for(c in n.children) if(childNodes.indexOf(c) == -1) childNodes.push(c);
-                } else {
-                    for(n in sourceNodes)
-                        for(c in n.children.filter((c) -> c.type == type)) 
-                            if(childNodes.indexOf(c) == -1) childNodes.push(c);
-                }
-                results = processFilter(childNodes, filter);
+                results = selectOfType(type, filters);
+            case Children(type, filters):
+                results = selectChildren(sourceNodes, type, filters);
             case Parents(type, filter):
-                var parentNodes:Array<DataNode> = [];
-                if(type == "*") {
-                    for(n in sourceNodes) for(p in n.parents) if(parentNodes.indexOf(p) == -1) parentNodes.push(p);
-                } else {
-                    for(n in sourceNodes)
-                        for(p in n.parents.filter((p) -> p.type == type)) if(parentNodes.indexOf(p) == -1) parentNodes.push(p);
-                }
-                results = processFilter(parentNodes, filter);
+                results = selectParents(sourceNodes, type, filter);
             case Descendants(type, filter):
                 results = processFilter(getDescendants(sourceNodes, type, [], []), filter);
         }
 
         // Debug trace to watch data chain process
-        trace(sourceNodes + " => " + token + " => " + results);
+        //trace(sourceNodes + " => " + token + " => " + results);
 
         return results;
     }
 
-    // Override methods below for custom processor
-
-    function selectOfType(type:String, filters:Array<TokenFilter>, nodes:Array<DataNode> = null) {
-        if(nodes == null) return [];
+    // Override 'select' methods below for custom processor
+    function selectOfType(type:String, filters:Array<TokenFilter>):Array<DataNode> {
+        var nodes = rootNodes(); // OfType is always at the start of the chain, use rootNodes() for default
         if(type != "*" && type != ".") nodes = nodes.filter((n) -> n.type == type);
         return processFilter(nodes, filters);
     }
 
-    function processFilter(nodes:Array<DataNode>, filters:Array<TokenFilter>) {
+    function selectChildren(parentNodes:Array<DataNode>, childType:String, filters:Array<TokenFilter>):Array<DataNode> {
+        var childNodes:Array<DataNode> = [];
+        if(childType == "*" || childType == ".") {
+            for(n in parentNodes) for(c in n.children) if(childNodes.indexOf(c) == -1) childNodes.push(c);
+        } else {
+            for(n in parentNodes)
+                for(c in n.children.filter((c) -> c.type == childType)) 
+                    if(childNodes.indexOf(c) == -1) childNodes.push(c);
+        }
+        return processFilter(childNodes, filters);
+    }
+
+    function selectParents(childNodes:Array<DataNode>, parentType:String, filters:Array<TokenFilter>):Array<DataNode> {
+        var parentNodes:Array<DataNode> = [];
+        if(parentType == "*" || parentType == ".") {
+            for(n in childNodes) for(p in n.parents) if(parentNodes.indexOf(p) == -1) parentNodes.push(p);
+        } else {
+            for(n in childNodes)
+                for(p in n.parents.filter((p) -> p.type == parentType)) if(parentNodes.indexOf(p) == -1) parentNodes.push(p);
+        }
+        return processFilter(parentNodes, filters);
+    }
+    
+    // selectDescendants runs via selectChildren and doesn't need to be overridden, but should be overridden for efficiency
+    function selectDescendants(parentNodes:Array<DataNode>, descType:String, filters:Array<TokenFilter>):Array<DataNode> {
+        return processFilter(getDescendants(parentNodes, descType, [], []), filters);
+    }
+
+    function getDescendants(nodes:Array<DataNode>, type:String, found:Array<DataNode>, searched:Array<DataNode>):Array<DataNode> {
+        for(n in nodes) {
+            if(searched.indexOf(n) == -1) {
+                searched.push(n);
+                if(n.type == type) if(found.indexOf(n) == -1) found.push(n);
+                getDescendants(selectChildren([n], "*", []), type, found, searched);
+            }
+        }
+        return found;
+    }
+    
+    // use processFilter as a 'fallback' filter, it would be better to do this work during query generation
+    function processFilter(nodes:Array<DataNode>, filters:Array<TokenFilter>):Array<DataNode> {
         for(filter in filters) {
             switch(filter) {
                 case Id(id):
@@ -302,9 +326,9 @@ class Processor {
                         nodes = [];
                     }
                 case ValEq(name, val):
-                    nodes = nodes.filter((n) -> n.fields.hasField(name) && n.fields.field(name) == val);
+                    nodes = nodes.filter((n) -> n.fields.hasField(name) && Std.string(n.fields.field(name)) == val);
                 case ValNE(name, val):
-                    nodes = nodes.filter((n) -> !n.fields.hasField(name) || n.fields.field(name) != val);
+                    nodes = nodes.filter((n) -> !n.fields.hasField(name) || Std.string(n.fields.field(name)) != val);
                 case OrderBy(name):
                     nodes.sort((n1,n2) -> {
                         var a = n1.fields.hasField(name) ? n1.fields.field(name) : "";
@@ -316,16 +340,5 @@ class Processor {
             }
         }
         return nodes;
-    }
-
-    function getDescendants(nodes:Array<DataNode>, type:String, found:Array<DataNode>, searched:Array<DataNode>):Array<DataNode> {
-        for(n in nodes) {
-            if(searched.indexOf(n) == -1) {
-                searched.push(n);
-                if(n.type == type) if(found.indexOf(n) == -1) found.push(n);
-                getDescendants(n.children, type, found, searched);
-            }
-        }
-        return found;
     }
 }

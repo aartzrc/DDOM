@@ -1,8 +1,8 @@
 using Lambda;
 
-import ddom.DDOM;
+using ddom.DDOM;
 import ddom.Selector;
-//import proctrack.ProcTrackSelector;
+import ddom.db.DBProcessor;
 
 @:access(ddom.DDOMInst)
 class Main {
@@ -11,6 +11,7 @@ class Main {
         //childTests();
         //selectorTests();
 
+        // TODO: make sub type select work - eq: "customer,item".concat(".customer") should get all customer+item then limit to just customer
         //tokenizerTests();
 
         //selectorAppendTests();
@@ -62,11 +63,80 @@ class Main {
         trace(sel4);
     }
 
+    @:access(ddom.DataNode)
     static function dbTests() {
-        /*var dbConn = new ProcTrackSelector();
+        var typeMap:Array<TypeMap> = [
+            {
+                type:"customer",
+                table:"customer",
+                idCol:"id",
+                children: [{
+                    type:"item",
+                    table:"item",
+                    parentIdCol:"customer_id",
+                    childIdCol: "id"
+                }]
+            },
+            {
+                type:"item",
+                table:"item",
+                idCol:"id",
+                children: [{
+                    type:"history",
+                    table:"item_history",
+                    parentIdCol:"item_id"
+                }]
+            },
+            {
+                type:"history",
+                table:"item_history"
+            }
+        ];
+
+        var dbConn = new DBProcessor({user:"bgp", pass:"bgp", host:"127.0.0.1", database:"proctrack"}, typeMap);
+
+        //var items = dbConn.select("customer#60 > item, customer#61");
+        //trace(items.select(".customer")); // This doesn't work yet
+        var retail = dbConn.select("customer[name=Retail]");
+        var retailItems = retail.select("> item:orderby(cdate)");
+        var last5 = retailItems.select(".:gt(" + (retailItems.size()-5) + ")");
+        var last5history = last5.select("history");
+        for(i in last5history) {
+            trace(i);
+        }
+
+        var lastHistory = retail.select("history:orderby(udate)");
+        for(i in 0 ... 5) trace(lastHistory[i]);
+        //var history = customers.select("history");
+        //trace(history);
+        
+        /*for(c in customersDDOM) {
+            trace(c.name);
+        }*/
+        //var items = dbConn.select("item");
+        //trace(items.size());
+        //var customers = items.select("< *");
+
+        //trace(customers.size());
+        /*for(c in customers) {
+            var ddi:DDOMInst = c;
+            trace(ddi.nodes[0].type + " : " + c.name);
+        }*/
+        
+        /*var customer = items.toCustomerList();
+        trace(customer);*/
+
+        //trace(items.parents());
+
+
+        /*var items = dbConn.select("item[approx_value=160]");
+        trace(items.size());
+        for(i in items) {
+            trace(i);
+        }*/
 
         // direct query mostly working (lots of custom logic to build that defines parent/child system, but it works...)
-        var items = dbConn.select("customer#6 > item");
+        /*var items = dbConn.select("customer#6 > item");
         for(i in items) {
             trace(i.orderitem + " : " + i.desc);
         }*/
@@ -87,7 +157,7 @@ class Main {
         var items = customer2.select("> item");
         trace(items);*/
 
-        //dbConn.dispose();
+        dbConn.dispose();
     }
 
     static function tokenizerTests() {
@@ -223,3 +293,4 @@ class Main {
         trace(user.parents());
     }
 }
+
