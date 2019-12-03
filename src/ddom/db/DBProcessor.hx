@@ -79,79 +79,37 @@ class DBProcessor extends Processor implements ISelectable {
     override function selectChildren(parentNodes:Array<DataNode>, childType:String, filters:Array<TokenFilter>):Array<DataNode> {
         var t = Timer.stamp();
         var childNodes:Array<DataNode> = [];
-        var childTypeMaps:Array<TypeMap> = [];
-        if(childType == "*" || childType == ".") {
-            for(ptm in parentNodes.map((pn) -> typeMap[pn.type]).filter((ptm) -> ptm != null && ptm.children != null))
-                childTypeMaps = childTypeMaps.concat(ptm.children.map((cm) -> typeMap[cm.type]).filter((ctm) -> ctm != null && childTypeMaps.indexOf(ctm) == -1));
-        } else {
-            if(typeMap.exists(childType)) childTypeMaps = [typeMap[childType]];
-        }
-        
-        for(childTypeMap in childTypeMaps) {
-            var idMap:Map<TypeMap, Array<String>> = [];
-            // Find all children that map back to this parent type and consolidate the lookups
-            for(cn in childNodes) {
-                var childMap = parentTypeMap.children.find((cm) -> cm.type == cn.type && cm.childIdCol != null);
-                if(childMap != null) {
-                    if(!idMap.exists(childMap)) idMap.set(childMap, []);
-                    idMap[childMap].push(c.quote(cn.fields["id"]));
-                }
-            }
-            for(childMap => ids in idMap) {
-                var sql = "select * from " + parentTypeMap.table + " where " + parentTypeMap.idCol + " in (select " + childMap.parentIdCol + " from " + childMap.table + " where " + childMap.childIdCol + " in (" + ids.join(",") + "))";
-                var result = c.request(sql);
-                for(row in result) {
-                    var parentNode = toDataNode(parentTypeMap, row);
-                    if(parentNodes.indexOf(parentNode) == -1)
-                        parentNodes.push(parentNode);
-                }
-            }
-        }
-
-        /*if(childType == "*" || childType == ".") {
-            for(pn in parentNodes) {
-                var parentType = typeMap[pn.type];
-                if(parentType != null && parentType.children != null && parentType.children.length > 0) {
-                    for(ct in parentType.children) {
-                        for(cn in selectChildren([pn], ct.type, filters))
-                            if(childNodes.indexOf(cn) == -1) childNodes.push(cn);
+        var parentChildMap:Map<String, Map<String, Array<String>>> = [];
+        for(pn in parentNodes) {
+            var ptm = typeMap[pn.type];
+            if(ptm != null && ptm.children != null) {
+                var childMaps = (childType == "*" || childType == ".") ? ptm.children : ptm.children.filter((cm) -> cm.type == childType);
+                if(childMaps.length > 0) {
+                    if(!parentChildMap.exists(ptm.type)) parentChildMap.set(ptm.type, []);
+                    var pcm = parentChildMap[ptm.type];
+                    for(cm in childMaps) {
+                        if(!pcm.exists(cm.type)) pcm.set(cm.type, []);
+                        pcm[cm.type].push(c.quote(pn.fields["id"]));
                     }
                 }
             }
-        } else {
-            for(pn in parentNodes) {
-                var parentType = typeMap[pn.type];
-                if(parentType != null && parentType.children != null && parentType.children.length > 0) {
-                    var childMap = parentType.children.find((c) -> c.type == childType );
-                    var childTypeMap = childMap != null ? typeMap[childMap.type] : null;
-                    if(childMap != null && childTypeMap != null) {
-                        try {
-                            var sql:String;
-                            if(childMap.childIdCol != null) {
-                                sql = "select * from " + childTypeMap.table + " where " + childTypeMap.idCol + " in (select " + childMap.childIdCol + " from " + childMap.table + " where " + childMap.parentIdCol + " = " + c.quote(pn.fields["id"]) + ")";
-                            } else {
-                                sql = "select * from " + childTypeMap.table + " where " + childMap.parentIdCol + " = " + c.quote(pn.fields["id"]);
-                            }
-                            var result = c.request(sql);
-                            for(row in result) {
-                                var childNode = toDataNode(childTypeMap, row);
-                                if(childNodes.indexOf(childNode) == -1)
-                                    childNodes.push(childNode);
-                            }
-                        } catch (e:Dynamic) {
-#if debug
-                            trace(pn);
-                            trace(e);
-#end
-                        }
-                    } else {
-#if debug
-                        trace("Unable to find parent to child mapping for: " + parentType.type + " => " + childType + " - check spelling and verify top level mapping exists");
-#end
+        }
+        for(pt => cm in parentChildMap) {
+            var parentType = typeMap[pt];
+            for(ct => pids in cm) {
+                if(pids.length > 0) {
+                    var childType = typeMap[ct];
+                    var childMap = parentType.children.find((cm) -> cm.type == ct);
+                    var sql = "select * from " + childType.table + " where " + childType.idCol + " in (select " + childMap.childIdCol + " from " + childMap.table + " where " + childMap.parentIdCol + " in (" + pids.join(",") + "))";
+                    var result = c.request(sql);
+                    for(row in result) {
+                        var childNode = toDataNode(childType, row);
+                        if(childNodes.indexOf(childNode) == -1)
+                            childNodes.push(childNode);
                     }
                 }
             }
-        }*/
+        }
         trace("children: " + (Timer.stamp() - t));
         return processFilter(childNodes, filters);
     }
