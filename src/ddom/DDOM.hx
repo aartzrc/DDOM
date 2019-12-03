@@ -1,7 +1,6 @@
 package ddom;
 
 using Lambda;
-using Reflect;
 using Type;
 
 import ddom.Selector;
@@ -124,7 +123,7 @@ class DDOMInst extends Processor implements ISelectable {
      * @param value 
      */
     function fieldWrite<T>(name:String, value:T) {
-        for(node in nodes) node.fields.setField(name, value);
+        for(node in nodes) node.fields.set(name, Std.string(value));
     }
 
     /**
@@ -132,9 +131,9 @@ class DDOMInst extends Processor implements ISelectable {
      * @param name 
      * @return T
      */
-    function fieldRead<T>(name:String):T {
+    function fieldRead(name:String):String {
         if(nodes.length == 0) return null;
-        return nodes[0].fields.field(name);
+        return nodes[0].fields.get(name);
     }
 
     function arrayRead(n:Int):DDOM {
@@ -184,7 +183,7 @@ abstract DDOM(DDOMInst) from DDOMInst #if debug to DDOMInst #end {
     @:op(a.b)
     public function fieldWrite<T>(name:String, value:T) this.fieldWrite(name, value);
     @:op(a.b)
-    public function fieldRead<T>(name:String):T return this.fieldRead(name);
+    public function fieldRead(name:String):String return this.fieldRead(name);
     @:op([]) 
     public function arrayRead(n:Int) return this.arrayRead(n);
 
@@ -195,7 +194,7 @@ abstract DDOM(DDOMInst) from DDOMInst #if debug to DDOMInst #end {
 @:allow(ddom.DDOM, ddom.DDOMInst, ddom.Processor, ddom.DataNodeAccessor)
 class DataNode {
     var type:String;
-    var fields = {};
+    var fields:Map<String,String> = [];
     var children:Array<DataNode> = [];
     var parents:Array<DataNode> = [];
     
@@ -204,10 +203,10 @@ class DataNode {
     }
 
     public function toString() {
-        var id = fields.field("id");
-        var fnames = fields.fields();
+        var id = fields["id"];
+        var fnames = [ for(n in fields.keys()) n ];
         fnames.remove("id");
-        var out = fnames.map((n) -> n + ":" + fields.field(n)).join(",");
+        var out = fnames.map((n) -> n + ":" + fields[n]).join(",");
         return "{type:" + type + (id != null ? ",id:" + id : "") + (out.length > 0 ? " => " + out : "") + "}";
     }
 }
@@ -311,7 +310,7 @@ class Processor {
         for(filter in filters) {
             switch(filter) {
                 case Id(id):
-                    nodes = nodes.filter((n) -> n.fields.hasField("id") && n.fields.field("id") == id);
+                    nodes = nodes.filter((n) -> n.fields["id"] == id);
                 case Pos(pos):
                     if(pos >= nodes.length) nodes = [];
                         else nodes = [ nodes[pos] ];
@@ -326,13 +325,13 @@ class Processor {
                         nodes = [];
                     }
                 case ValEq(name, val):
-                    nodes = nodes.filter((n) -> n.fields.hasField(name) && Std.string(n.fields.field(name)) == val);
+                    nodes = nodes.filter((n) -> n.fields[name] == val);
                 case ValNE(name, val):
-                    nodes = nodes.filter((n) -> !n.fields.hasField(name) || Std.string(n.fields.field(name)) != val);
+                    nodes = nodes.filter((n) -> n.fields[name] != val);
                 case OrderBy(name):
                     nodes.sort((n1,n2) -> {
-                        var a = n1.fields.hasField(name) ? n1.fields.field(name) : "";
-                        var b = n2.fields.hasField(name) ? n2.fields.field(name) : "";
+                        var a = n1.fields.exists(name) ? n1.fields[name] : "";
+                        var b = n2.fields.exists(name) ? n2.fields[name] : "";
                         if (a < b) return -1;
                         if (a > b) return 1;
                         return 0;

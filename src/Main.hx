@@ -93,7 +93,7 @@ class Main {
             }
         ];
 
-        var dbConn = new DBProcessor({user:"bgp", pass:"bgp", host:"127.0.0.1", database:"proctrack"}, typeMap);
+        var dbConn = new DBProcessor({user:"bgp", pass:"bgp", host:"127.0.0.1", database:"proctrack"}, typeMap, false);
 
         //var items = dbConn.select("customer#60 > item, customer#61");
         //trace(items.select(".customer")); // This doesn't work yet
@@ -113,11 +113,11 @@ class Main {
         /*for(c in customersDDOM) {
             trace(c.name);
         }*/
-        //var items = dbConn.select("item");
-        //trace(items.size());
-        //var customers = items.select("< *");
+        var items = dbConn.select("item");
+        trace(items.size());
+        var customers = items.select("< *");
 
-        //trace(customers.size());
+        trace(customers.size());
         /*for(c in customers) {
             var ddi:DDOMInst = c;
             trace(ddi.nodes[0].type + " : " + c.name);

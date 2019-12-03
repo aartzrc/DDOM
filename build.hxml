@@ -1,4 +1,4 @@
 -cp src
 -D analyzer-optimize
--main Main
+-main FieldAccessTest
 --interp

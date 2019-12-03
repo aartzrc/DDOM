@@ -1,8 +1,8 @@
 package ddom.db;
 
+import haxe.Timer;
 import haxe.Serializer;
 import haxe.Unserializer;
-using Reflect;
 using Lambda;
 
 import ddom.DDOM;
@@ -16,6 +16,7 @@ class DBProcessor extends Processor implements ISelectable {
     var c:sys.db.Connection;
     var typeMap:Map<String, TypeMap> = [];
     var cache:Map<String, Map<String, DataNode>> = [];
+    var useCache:Bool;
     var selectGroupCache:Map<String, Array<DataNode>> = [];
 	public function new(params : {
 		host : String,
@@ -24,12 +25,13 @@ class DBProcessor extends Processor implements ISelectable {
 		pass : String,
 		?socket : String,
 		database : String
-	}, typeMaps:Array<TypeMap> = null) {
+	}, typeMaps:Array<TypeMap> = null, useCache:Bool = true) {
         if(typeMaps != null) {
             for(t in typeMaps) {
                 typeMap.set(t.type, t);
             }
         }
+        this.useCache = useCache;
         c = Mysql.connect(params);
     }
 
@@ -50,6 +52,7 @@ class DBProcessor extends Processor implements ISelectable {
     }
 
     override function selectOfType(type:String, filters:Array<TokenFilter>):Array<DataNode> {
+        var t = Timer.stamp();
         var results:Array<DataNode> = [];
         if(type == "." || type == "*") { // Get EVERYTHING - this should be optionally blocked?
             for(t in typeMap)
@@ -69,12 +72,43 @@ class DBProcessor extends Processor implements ISelectable {
 #end
             }
         }
+        trace(Timer.stamp() - t);
         return processFilter(results, filters);
     }
 
     override function selectChildren(parentNodes:Array<DataNode>, childType:String, filters:Array<TokenFilter>):Array<DataNode> {
+        var t = Timer.stamp();
         var childNodes:Array<DataNode> = [];
+        var childTypeMaps:Array<TypeMap> = [];
         if(childType == "*" || childType == ".") {
+            for(ptm in parentNodes.map((pn) -> typeMap[pn.type]).filter((ptm) -> ptm != null && ptm.children != null))
+                childTypeMaps = childTypeMaps.concat(ptm.children.map((cm) -> typeMap[cm.type]).filter((ctm) -> ctm != null && childTypeMaps.indexOf(ctm) == -1));
+        } else {
+            if(typeMap.exists(childType)) childTypeMaps = [typeMap[childType]];
+        }
+        
+        for(childTypeMap in childTypeMaps) {
+            var idMap:Map<TypeMap, Array<String>> = [];
+            // Find all children that map back to this parent type and consolidate the lookups
+            for(cn in childNodes) {
+                var childMap = parentTypeMap.children.find((cm) -> cm.type == cn.type && cm.childIdCol != null);
+                if(childMap != null) {
+                    if(!idMap.exists(childMap)) idMap.set(childMap, []);
+                    idMap[childMap].push(c.quote(cn.fields["id"]));
+                }
+            }
+            for(childMap => ids in idMap) {
+                var sql = "select * from " + parentTypeMap.table + " where " + parentTypeMap.idCol + " in (select " + childMap.parentIdCol + " from " + childMap.table + " where " + childMap.childIdCol + " in (" + ids.join(",") + "))";
+                var result = c.request(sql);
+                for(row in result) {
+                    var parentNode = toDataNode(parentTypeMap, row);
+                    if(parentNodes.indexOf(parentNode) == -1)
+                        parentNodes.push(parentNode);
+                }
+            }
+        }
+
+        /*if(childType == "*" || childType == ".") {
             for(pn in parentNodes) {
                 var parentType = typeMap[pn.type];
                 if(parentType != null && parentType.children != null && parentType.children.length > 0) {
@@ -94,9 +128,9 @@ class DBProcessor extends Processor implements ISelectable {
                         try {
                             var sql:String;
                             if(childMap.childIdCol != null) {
-                                sql = "select * from " + childTypeMap.table + " where " + childTypeMap.idCol + " in (select " + childMap.childIdCol + " from " + childMap.table + " where " + childMap.parentIdCol + " = " + c.quote(pn.fields.field("id")) + ")";
+                                sql = "select * from " + childTypeMap.table + " where " + childTypeMap.idCol + " in (select " + childMap.childIdCol + " from " + childMap.table + " where " + childMap.parentIdCol + " = " + c.quote(pn.fields["id"]) + ")";
                             } else {
-                                sql = "select * from " + childTypeMap.table + " where " + childMap.parentIdCol + " = " + c.quote(pn.fields.field("id"));
+                                sql = "select * from " + childTypeMap.table + " where " + childMap.parentIdCol + " = " + c.quote(pn.fields["id"]);
                             }
                             var result = c.request(sql);
                             for(row in result) {
@@ -117,35 +151,42 @@ class DBProcessor extends Processor implements ISelectable {
                     }
                 }
             }
-        }
+        }*/
+        trace("children: " + (Timer.stamp() - t));
         return processFilter(childNodes, filters);
     }
 
     override function selectParents(childNodes:Array<DataNode>, parentType:String, filters:Array<TokenFilter>):Array<DataNode> {
+        var t = Timer.stamp();
         var parentNodes:Array<DataNode> = [];
+        var parentTypeMaps:Array<TypeMap> = [];
         if(parentType == "*" || parentType == ".") {
+            for(cn in childNodes)
+                parentTypeMaps = parentTypeMaps.concat(typeMap.filter((tm) -> tm.children != null && tm.children.exists((c) -> c.type == cn.type)).filter((pt) -> parentTypeMaps.indexOf(pt) == -1));
+        } else {
+            if(typeMap.exists(parentType)) parentTypeMaps = [typeMap[parentType]];
+        }
+        for(parentTypeMap in parentTypeMaps) {
+            var idMap:Map<ChildTypeMap, Array<String>> = [];
+            // Find all children that map back to this parent type and consolidate the lookups
             for(cn in childNodes) {
-                var parentTypes = typeMap.filter((tm) -> tm.children != null && tm.children.exists((c) -> c.type == cn.type));
-                for(parentType in parentTypes) {
-                    for(pn in selectParents([cn], parentType.type, filters))
-                        if(parentNodes.indexOf(pn) == -1) parentNodes.push(pn);
+                var childMap = parentTypeMap.children.find((cm) -> cm.type == cn.type && cm.childIdCol != null);
+                if(childMap != null) {
+                    if(!idMap.exists(childMap)) idMap.set(childMap, []);
+                    idMap[childMap].push(c.quote(cn.fields["id"]));
                 }
             }
-        } else {
-            for(cn in childNodes) {
-                var parentTypeMap = typeMap.find((tm) -> tm.type == parentType && tm.children.exists((c) -> c.type == cn.type && c.childIdCol != null));
-                if(parentTypeMap != null) {
-                    var childMap = parentTypeMap.children.find((cm) -> cm.type == cn.type);
-                    var sql = "select * from " + parentTypeMap.table + " where " + parentTypeMap.idCol + " in (select " + childMap.parentIdCol + " from " + childMap.table + " where " + childMap.childIdCol + "=" + c.quote(cn.fields.field("id")) + ")";
-                    var result = c.request(sql);
-                    for(row in result) {
-                        var parentNode = toDataNode(parentTypeMap, row);
-                        if(parentNodes.indexOf(parentNode) == -1)
-                            parentNodes.push(parentNode);
-                    }
+            for(childMap => ids in idMap) {
+                var sql = "select * from " + parentTypeMap.table + " where " + parentTypeMap.idCol + " in (select " + childMap.parentIdCol + " from " + childMap.table + " where " + childMap.childIdCol + " in (" + ids.join(",") + "))";
+                var result = c.request(sql);
+                for(row in result) {
+                    var parentNode = toDataNode(parentTypeMap, row);
+                    if(parentNodes.indexOf(parentNode) == -1)
+                        parentNodes.push(parentNode);
                 }
             }
         }
+        trace("parents: " + (Timer.stamp() - t));
 
         return processFilter(parentNodes, filters);
     }
@@ -153,7 +194,7 @@ class DBProcessor extends Processor implements ISelectable {
     function toDataNode(t:TypeMap, row:Dynamic):DataNode {
         function checkCache(node:DataNode) {
             var type = node.type;
-            var id = node.fields.field("id");
+            var id = node.fields["id"];
             if(id == null) return node; // Cannot cache without id
             if(!cache.exists(type)) cache.set(type, new Map<String, DataNode>());
             if(!cache[type].exists(id)) {
@@ -163,10 +204,9 @@ class DBProcessor extends Processor implements ISelectable {
             return cache[type][id];
         }
         var dn = new DataNode(t.type);
-        var cleanRow = Unserializer.run(Serializer.run(row)); // Isolate the row, lots of 'quirks' with using row directly for some reason...
-        for(f in Reflect.fields(cleanRow)) dn.fields.setField(f, Std.string(Reflect.field(cleanRow, f))); // Clean/convert all to strings so comparison operations work
-        if(t.idCol != "id") dn.fields.setField("id", dn.fields.field(t.idCol)); // Make sure 'id' field is available
-        return checkCache(dn);
+        dn.fields = [ for(f in Reflect.fields(row)) f => Std.string(Reflect.field(row, f)) ];
+        if(t.idCol != "id") dn.fields.set("id", dn.fields[t.idCol]); // Make sure 'id' field is available
+        return useCache ? checkCache(dn) : dn;
     }
 }
 
