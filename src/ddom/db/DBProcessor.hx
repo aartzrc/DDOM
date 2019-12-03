@@ -100,7 +100,14 @@ class DBProcessor extends Processor implements ISelectable {
                 if(pids.length > 0) {
                     var childType = typeMap[ct];
                     var childMap = parentType.children.find((cm) -> cm.type == ct);
-                    var sql = "select * from " + childType.table + " where " + childType.idCol + " in (select " + childMap.childIdCol + " from " + childMap.table + " where " + childMap.parentIdCol + " in (" + pids.join(",") + "))";
+
+                    var sql:String;
+                    if(childMap.childIdCol != null) {
+                        sql = "select * from " + childType.table + " where " + childType.idCol + " in (select " + childMap.childIdCol + " from " + childMap.table + " where " + childMap.parentIdCol + " in (" + pids.join(",") + "))";
+                    } else {
+                        sql = "select * from " + childType.table + " where " + childMap.parentIdCol + " in (" + pids.join(",") + ")";
+                    }
+
                     var result = c.request(sql);
                     for(row in result) {
                         var childNode = toDataNode(childType, row);
