@@ -1,5 +1,6 @@
 package ddom;
 
+import haxe.PosInfos;
 using Lambda;
 using Type;
 
@@ -78,10 +79,7 @@ class DDOMInst extends Processor implements ISelectable {
         var coreChild:DDOMInst = cast child;
         for(node in nodes) {
             for(cn in coreChild.nodes) {
-                if(node.children.indexOf(cn) == -1) {
-                    cn.parents.push(node);
-                    node.children.push(cn);
-                }
+                node.addChild(cn);
             }
         }
         return new DDOMInst(processors, selector);
@@ -95,8 +93,7 @@ class DDOMInst extends Processor implements ISelectable {
         if(child == null) { // Detach myself from all parents
             for(node in nodes) {
                 for(pn in node.parents)
-                    pn.children.remove(node);
-                node.parents = [];
+                    pn.removeChild(node);
             }
             var ddom = new DDOMInst();
             ddom._nodes = nodes;
@@ -105,8 +102,7 @@ class DDOMInst extends Processor implements ISelectable {
             var coreChild:DDOMInst = cast child;
             for(node in nodes) {
                 for(cn in coreChild.nodes) {
-                    node.children.remove(cn);
-                    cn.parents.remove(node);
+                    node.removeChild(cn);
                 }
             }
             return new DDOMInst(processors, selector);
@@ -122,8 +118,8 @@ class DDOMInst extends Processor implements ISelectable {
      * @param name 
      * @param value 
      */
-    function fieldWrite<T>(name:String, value:T) {
-        for(node in nodes) node.fields.set(name, Std.string(value));
+    function fieldWrite(name:String, value:String) {
+        for(node in nodes) node.setField(name, value);
     }
 
     /**
@@ -133,7 +129,7 @@ class DDOMInst extends Processor implements ISelectable {
      */
     function fieldRead(name:String):String {
         if(nodes.length == 0) return null;
-        return nodes[0].fields.get(name);
+        return nodes[0].getField(name);
     }
 
     function arrayRead(n:Int):DDOM {
@@ -161,6 +157,34 @@ class DDOMInst extends Processor implements ISelectable {
         if(selector == null && this.selector.length == 0) return this; // Ignore re-select on a root node
         return new DDOMInst(processors, this.selector.concat(selector));
     }
+
+    public function attach(callback:(ddom:DDOM) -> Void):()->Void {
+        var detachFuncs:Array<()->Void> = [];
+        for(p in processors)
+            detachFuncs.push(p.listen(selector, callback));
+
+        return () -> {
+            for(f in detachFuncs) f();
+        }
+    }
+
+    function listen(selector:Selector, callback:(ddom:DDOM) -> Void):()->Void {
+        function fire() {
+            trace("HERE");
+        }
+        var attachNode = rootNodes.length > 0 ? rootNodes[0] : null;
+
+        if(attachNode != null) attachNode.on(fire);
+    }
+
+    /**
+     * Extension method that provides access to DataNodes based on type
+     * @param ddom
+     * @param type 
+     */
+    public static function nodesOfType(ddom:DDOMInst, type:String) {
+        return ddom.nodes.filter((dn) -> dn.type == type);
+    }
 }
 
 @:allow(ddom.DDOMInst)
@@ -181,7 +205,7 @@ class DDOMIterator {
 @:forward(iterator, append, children, parents, size, remove, select)
 abstract DDOM(DDOMInst) from DDOMInst #if debug to DDOMInst #end {
     @:op(a.b)
-    public function fieldWrite<T>(name:String, value:T) this.fieldWrite(name, value);
+    public function fieldWrite(name:String, value:String) this.fieldWrite(name, value);
     @:op(a.b)
     public function fieldRead(name:String):String return this.fieldRead(name);
     @:op([]) 
@@ -191,15 +215,96 @@ abstract DDOM(DDOMInst) from DDOMInst #if debug to DDOMInst #end {
 }
 
 // This is the actual data item, DDOM wraps this
-@:allow(ddom.DDOM, ddom.DDOMInst, ddom.Processor, ddom.DataNodeAccessor)
+@:allow(ddom.DDOMInst, ddom.Processor)
 class DataNode {
     var type:String;
     var fields:Map<String,String> = [];
     var children:Array<DataNode> = [];
     var parents:Array<DataNode> = [];
+
+    var listeners:Array<()->Void> = [];
     
 	function new(type:String) {
         this.type = type;
+    }
+
+    function setField(name:String, val:String) {
+        if(fields[name] != val) {
+            fields[name] = val;
+            fire();
+        }
+    }
+
+    function getField(name:String) {
+        return fields[name];
+    }
+
+    function addChild(child:DataNode) {
+        var mod = false;
+        if(children.indexOf(child) == -1) {
+            children.push(child);
+            mod = true;
+        }
+        if(child.parents.indexOf(this) == -1) {
+            child.parents.push(this);
+            mod = true;
+        }
+        if(mod) {
+            if(listeners.length > 0) child.on(fire);
+            fire();
+        }
+    }
+
+    function removeChild(child:DataNode) {
+        if(children.remove(child) || child.parents.remove(this)) {
+            child.off(fire);
+            fire();
+        }
+    }
+
+    function addParent(parent:DataNode) {
+        var mod = false;
+        if(parents.indexOf(parent) == -1) {
+            parents.push(parent);
+            mod = true;
+        }
+        if(parent.children.indexOf(this) == -1) {
+            parent.children.push(this);
+            mod = true;
+        }
+        if(mod) {
+            if(listeners.length > 0) parent.on(fire);
+            fire();
+        }
+    }
+
+    function removeParent(parent:DataNode) {
+        if(parents.remove(parent) || parent.children.remove(this)) {
+            parent.off(fire);
+            fire();
+        }
+    }
+
+    function on(callback:()->Void) {
+        if(listeners.indexOf(callback) == -1)
+            listeners.push(callback);
+    }
+
+    function off(callback:()->Void) {
+        listeners.remove(callback);
+    }
+    
+    var handleListeners:Array<()->Void> = null;
+    function fire() {
+        if(listeners.length == 0) return; // No one listening
+        if(handleListeners == null) // Tell listeners and parents+children
+            handleListeners = listeners.concat([for(p in parents) p.fire]).concat([for(c in children) c.fire]);
+        handleFire();
+    }
+    function handleFire() {
+        while(handleListeners != null && handleListeners.length > 0)
+            handleListeners.shift()();
+        handleListeners = null;
     }
 
     public function toString() {

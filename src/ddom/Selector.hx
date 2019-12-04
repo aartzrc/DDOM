@@ -1,10 +1,6 @@
 package ddom;
 
-import ddom.DDOM.DDOMInst;
-import ddom.DDOM.DataNode;
-
 using Lambda;
-using Reflect;
 using StringTools;
 
 @:forward(length)

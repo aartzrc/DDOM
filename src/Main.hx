@@ -4,7 +4,7 @@ using ddom.DDOM;
 import ddom.Selector;
 import ddom.db.DBProcessor;
 
-@:access(ddom.DDOMInst)
+@:access(ddom.DDOMInst,ddom.DataNode)
 class Main {
 	static function main() {
         //basicTests();
@@ -18,8 +18,53 @@ class Main {
 
         //chainTests();
 
-        dbTests();
+        //dbTests();
+
+        //castTests();
+
+        attachDetachTests();
 	}
+
+    static function attachDetachTests() {
+        var cache = DDOM.create("cache");
+        var u1 = DDOM.create("user");
+        u1.name = "person a";
+        cache.append(u1);
+        var u2 = DDOM.create("user");
+        u2.name = "person b";
+        cache.append(u2);
+
+        var dn = u2.nodesOfType("user")[0];
+        function l() { trace("here!");};
+        dn.on(l);
+
+        u2.name = "update";
+
+        dn.off(l);
+        u2.name = "again?";
+
+        //trace(cache.select("> user"));
+        // static extension 'attach' that will return a 'detach' function
+        // add mod history to all DataNodes, when a modification occurs in the chain fire the attach calls
+    }
+
+    static function castTests() {
+        var cache = DDOM.create("cache");
+        var u1 = DDOM.create("user");
+        u1.name = "person a";
+        cache.append(u1);
+        var u2 = DDOM.create("user");
+        u2.name = "person b";
+        cache.append(u2);
+
+        var users:Array<User> = cache.select("> user").nodesOfType("user");
+        for(user in users) {
+            trace(user.name);
+            user.name = "new guy?";
+        }
+
+        trace(cache.select("> user"));
+    }
 
     static function childTests() {
         var cache = DDOM.create("cache");
@@ -294,3 +339,16 @@ class Main {
     }
 }
 
+@:access(ddom.DataNode)
+abstract User(DataNode) from DataNode {
+    public var name(get,set):String;
+
+    function get_name() {
+        return this.getField("name");
+    }
+
+    function set_name(name:String) {
+        this.setField("name", name);
+        return name;
+    }
+}
