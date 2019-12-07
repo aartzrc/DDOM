@@ -1,6 +1,7 @@
 using Lambda;
 
 using ddom.DDOM;
+using ddom.SelectorListener;
 import ddom.Selector;
 import ddom.db.DBProcessor;
 
@@ -34,18 +35,11 @@ class Main {
         u2.name = "person b";
         cache.append(u2);
 
-        var dn = u2.nodesOfType("user")[0];
-        function l() { trace("here!");};
-        dn.on(l);
-
-        u2.name = "update";
-
-        dn.off(l);
-        u2.name = "again?";
-
-        //trace(cache.select("> user"));
-        // static extension 'attach' that will return a 'detach' function
-        // add mod history to all DataNodes, when a modification occurs in the chain fire the attach calls
+        var d = cache.select("> user");
+        d.attach((ddom) -> trace(ddom));
+        d.name = "name changed"; // This should be ignored by the listener
+        var u3 = DDOM.create("user");
+        cache.append(u3); // This should result in an update
     }
 
     static function castTests() {
@@ -60,6 +54,7 @@ class Main {
         var users:Array<User> = cache.select("> user").nodesOfType("user");
         for(user in users) {
             trace(user.name);
+            user.onChange("name", (newName) -> trace(newName));
             user.name = "new guy?";
         }
 
@@ -350,5 +345,18 @@ abstract User(DataNode) from DataNode {
     function set_name(name:String) {
         this.setField("name", name);
         return name;
+    }
+
+    public function onChange(field:String, callback:(String)->Void):()->Void {
+        function handleEvent(e) {
+            switch(e) {
+                case FieldSet(name, val):
+                    if(name == field) callback(val);
+                case _:
+                    // Not handled here
+            }
+        }
+        this.on(handleEvent);
+        return this.off.bind(handleEvent);
     }
 }

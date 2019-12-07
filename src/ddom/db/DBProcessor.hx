@@ -1,18 +1,16 @@
 package ddom.db;
 
 import haxe.Timer;
-import haxe.Serializer;
-import haxe.Unserializer;
 using Lambda;
 
 import ddom.DDOM;
 import ddom.Selector;
-import ddom.ISelectable;
+import ddom.Processor;
 
 import sys.db.Mysql;
 
 @:access(ddom.DDOMInst, ddom.DataNode)
-class DBProcessor extends Processor implements ISelectable {
+class DBProcessor extends Processor implements IProcessor {
     var c:sys.db.Connection;
     var typeMap:Map<String, TypeMap> = [];
     var cache:Map<String, Map<String, DataNode>> = [];
@@ -52,7 +50,7 @@ class DBProcessor extends Processor implements ISelectable {
     }
 
     override function selectOfType(type:String, filters:Array<TokenFilter>):Array<DataNode> {
-        var t = Timer.stamp();
+        //var t = Timer.stamp();
         var results:Array<DataNode> = [];
         if(type == "." || type == "*") { // Get EVERYTHING - this should be optionally blocked?
             for(t in typeMap)
@@ -72,12 +70,12 @@ class DBProcessor extends Processor implements ISelectable {
 #end
             }
         }
-        trace(Timer.stamp() - t);
+        //trace(Timer.stamp() - t);
         return processFilter(results, filters);
     }
 
     override function selectChildren(parentNodes:Array<DataNode>, childType:String, filters:Array<TokenFilter>):Array<DataNode> {
-        var t = Timer.stamp();
+        //var t = Timer.stamp();
         var childNodes:Array<DataNode> = [];
         var parentChildMap:Map<String, Map<String, Array<String>>> = [];
         for(pn in parentNodes) {
@@ -117,12 +115,12 @@ class DBProcessor extends Processor implements ISelectable {
                 }
             }
         }
-        trace("children: " + (Timer.stamp() - t));
+        //trace("children: " + (Timer.stamp() - t));
         return processFilter(childNodes, filters);
     }
 
     override function selectParents(childNodes:Array<DataNode>, parentType:String, filters:Array<TokenFilter>):Array<DataNode> {
-        var t = Timer.stamp();
+        //var t = Timer.stamp();
         var parentNodes:Array<DataNode> = [];
         var parentTypeMaps:Array<TypeMap> = [];
         if(parentType == "*" || parentType == ".") {
@@ -151,7 +149,7 @@ class DBProcessor extends Processor implements ISelectable {
                 }
             }
         }
-        trace("parents: " + (Timer.stamp() - t));
+        //trace("parents: " + (Timer.stamp() - t));
 
         return processFilter(parentNodes, filters);
     }

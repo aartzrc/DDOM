@@ -1,18 +1,17 @@
 package ddom;
 
-import haxe.PosInfos;
-using Lambda;
-using Type;
-
 import ddom.Selector;
+import ddom.Processor.IProcessor;
+
+// private function listen(selector:Selector, callback:(ddom:DDOM) -> Void):()->Void;
 
 /**
- * The core immutable instance. Once created and 'nodes' are accessed it becomes a cached data set. Use select() without an argument to re-run the selector.
+ * The core instance. Once created and 'nodes' are accessed it becomes a cached data set. Use select() without an argument to re-run the selector.
  */
-@:allow(ddom.DDOM, ddom.DDOMIterator, ddom.SelectorProcessor)
-class DDOMInst extends Processor implements ISelectable {
+@:allow(ddom.DDOM, ddom.DDOMIterator, ddom.SelectorProcessor, ddom.SelectorListener)
+class DDOMInst extends Processor implements ISelectable implements IProcessor {
     var selector:Selector; // the selector for this DDOM instance
-    var processors:Array<ISelectable>; // processors that will be called to generate the nodes array
+    var processors:Array<IProcessor>; // processors that will be called to generate the nodes array
     var nodes(get,never):Array<DataNode>; // nodes will be lazy created when needed
     var _nodes:Array<DataNode>; // cached array of result nodes for the selector - this should NEVER be reset - a DDOM instance, once created and accessed, should always return the same set - to access data changes, a new select should occur
 
@@ -21,7 +20,7 @@ class DDOMInst extends Processor implements ISelectable {
      * @param processors 
      * @param selector 
      */
-    function new(processors:Array<ISelectable> = null, selector:Selector = null) {
+    function new(processors:Array<IProcessor> = null, selector:Selector = null) {
         this.processors = processors != null ? processors : [this]; // null processors means this is a 'stand-alone' instance, manually populate the _nodes cache and assign 'this' as a processor so sub-selects work
         this.selector = selector != null ? selector : []; // a null selector means this is a 'root' data source
     }
@@ -77,11 +76,13 @@ class DDOMInst extends Processor implements ISelectable {
      */
     public function append(child:DDOM):DDOM {
         var coreChild:DDOMInst = cast child;
+        var batch = DataNode.createBatch();
         for(node in nodes) {
             for(cn in coreChild.nodes) {
-                node.addChild(cn);
+                node.addChild(cn, batch);
             }
         }
+        batch.fire();
         return new DDOMInst(processors, selector);
     }
 
@@ -91,20 +92,24 @@ class DDOMInst extends Processor implements ISelectable {
      */
     public function remove(child:DDOM = null):DDOM {
         if(child == null) { // Detach myself from all parents
+            var batch = DataNode.createBatch();
             for(node in nodes) {
                 for(pn in node.parents)
-                    pn.removeChild(node);
+                    pn.removeChild(node, batch);
             }
+            batch.fire();
             var ddom = new DDOMInst();
             ddom._nodes = nodes;
             return ddom;
          } else { // Detach a child batch
             var coreChild:DDOMInst = cast child;
+            var batch = DataNode.createBatch();
             for(node in nodes) {
                 for(cn in coreChild.nodes) {
-                    node.removeChild(cn);
+                    node.removeChild(cn, batch);
                 }
             }
+            batch.fire();
             return new DDOMInst(processors, selector);
         }
     }
@@ -119,7 +124,9 @@ class DDOMInst extends Processor implements ISelectable {
      * @param value 
      */
     function fieldWrite(name:String, value:String) {
-        for(node in nodes) node.setField(name, value);
+        var batch = DataNode.createBatch();
+        for(node in nodes) node.setField(name, value, batch);
+        batch.fire();
     }
 
     /**
@@ -158,25 +165,6 @@ class DDOMInst extends Processor implements ISelectable {
         return new DDOMInst(processors, this.selector.concat(selector));
     }
 
-    public function attach(callback:(ddom:DDOM) -> Void):()->Void {
-        var detachFuncs:Array<()->Void> = [];
-        for(p in processors)
-            detachFuncs.push(p.listen(selector, callback));
-
-        return () -> {
-            for(f in detachFuncs) f();
-        }
-    }
-
-    function listen(selector:Selector, callback:(ddom:DDOM) -> Void):()->Void {
-        function fire() {
-            trace("HERE");
-        }
-        var attachNode = rootNodes.length > 0 ? rootNodes[0] : null;
-
-        if(attachNode != null) attachNode.on(fire);
-    }
-
     /**
      * Extension method that provides access to DataNodes based on type
      * @param ddom
@@ -202,7 +190,7 @@ class DDOMIterator {
     }
 }
 
-@:forward(iterator, append, children, parents, size, remove, select)
+@:forward(iterator, append, children, parents, size, remove, select, attach)
 abstract DDOM(DDOMInst) from DDOMInst #if debug to DDOMInst #end {
     @:op(a.b)
     public function fieldWrite(name:String, value:String) this.fieldWrite(name, value);
@@ -215,23 +203,32 @@ abstract DDOM(DDOMInst) from DDOMInst #if debug to DDOMInst #end {
 }
 
 // This is the actual data item, DDOM wraps this
-@:allow(ddom.DDOMInst, ddom.Processor)
+@:allow(ddom.DDOMInst, ddom.Processor, ddom.SelectorListener)
 class DataNode {
     var type:String;
     var fields:Map<String,String> = [];
     var children:Array<DataNode> = [];
     var parents:Array<DataNode> = [];
 
-    var listeners:Array<()->Void> = [];
+    var listeners:Array<(Event)->Void> = [];
+
+    var events:Array<{event:Event,time:Float}> = [];
     
-	function new(type:String) {
+	function new(type:String, batch:EventBatch = null) {
         this.type = type;
+        if(batch != null) batch.events.push(Created(type));
+        else fire(Created(type));
     }
 
-    function setField(name:String, val:String) {
+    function setField(name:String, val:String, batch:EventBatch = null) {
         if(fields[name] != val) {
             fields[name] = val;
-            fire();
+            if(batch != null) {
+                batch = buildBatch(batch);
+                batch.events.push(FieldSet(name, val));
+            } else {
+                fire(FieldSet(name, val));
+            }
         }
     }
 
@@ -239,72 +236,68 @@ class DataNode {
         return fields[name];
     }
 
-    function addChild(child:DataNode) {
-        var mod = false;
+    function addChild(child:DataNode, batch:EventBatch = null) {
         if(children.indexOf(child) == -1) {
             children.push(child);
-            mod = true;
+            var fireBatch = batch == null;
+            batch = buildBatch(batch);
+            batch.events.push(ChildAdded(child));
+            child.addParent(this, batch);
+            if(fireBatch) batch.fire();
+            return true;
         }
-        if(child.parents.indexOf(this) == -1) {
-            child.parents.push(this);
-            mod = true;
-        }
-        if(mod) {
-            if(listeners.length > 0) child.on(fire);
-            fire();
-        }
+        return false;
     }
 
-    function removeChild(child:DataNode) {
-        if(children.remove(child) || child.parents.remove(this)) {
-            child.off(fire);
-            fire();
+    function removeChild(child:DataNode, batch:EventBatch = null) {
+        if(children.remove(child)) {
+            var fireBatch = batch == null;
+            batch = buildBatch(batch);
+            batch.events.push(ChildRemoved(child));
+            child.removeParent(this, batch);
+            if(fireBatch) batch.fire();
+            return true;
         }
+        return false;
     }
 
-    function addParent(parent:DataNode) {
-        var mod = false;
+    function addParent(parent:DataNode, batch:EventBatch = null) {
         if(parents.indexOf(parent) == -1) {
             parents.push(parent);
-            mod = true;
+            var fireBatch = batch == null;
+            batch = buildBatch(batch);
+            batch.events.push(ParentAdded(parent));
+            parent.addChild(this, batch);
+            if(fireBatch) batch.fire();
+            return true;
         }
-        if(parent.children.indexOf(this) == -1) {
-            parent.children.push(this);
-            mod = true;
-        }
-        if(mod) {
-            if(listeners.length > 0) parent.on(fire);
-            fire();
-        }
+        return false;
     }
 
-    function removeParent(parent:DataNode) {
-        if(parents.remove(parent) || parent.children.remove(this)) {
-            parent.off(fire);
-            fire();
+    function removeParent(parent:DataNode, batch:EventBatch = null) {
+        if(parents.remove(parent)) {
+            var fireBatch = batch == null;
+            batch = buildBatch(batch);
+            batch.events.push(ParentRemoved(parent));
+            parent.removeChild(this, batch);
+            if(fireBatch) batch.fire();
+            return true;
         }
+        return false;
     }
 
-    function on(callback:()->Void) {
+    function on(callback:(Event)->Void) {
         if(listeners.indexOf(callback) == -1)
             listeners.push(callback);
     }
 
-    function off(callback:()->Void) {
+    function off(callback:(Event)->Void) {
         listeners.remove(callback);
     }
     
-    var handleListeners:Array<()->Void> = null;
-    function fire() {
-        if(listeners.length == 0) return; // No one listening
-        if(handleListeners == null) // Tell listeners and parents+children
-            handleListeners = listeners.concat([for(p in parents) p.fire]).concat([for(c in children) c.fire]);
-        handleFire();
-    }
-    function handleFire() {
-        while(handleListeners != null && handleListeners.length > 0)
-            handleListeners.shift()();
-        handleListeners = null;
+    function fire(event:Event) {
+        events.push({event:event,time:Date.now().getTime()});
+        for(l in listeners) l(event);
     }
 
     public function toString() {
@@ -314,135 +307,40 @@ class DataNode {
         var out = fnames.map((n) -> n + ":" + fields[n]).join(",");
         return "{type:" + type + (id != null ? ",id:" + id : "") + (out.length > 0 ? " => " + out : "") + "}";
     }
+
+    function buildBatch(batch:EventBatch = null):EventBatch {
+        if(batch == null) batch = createBatch();
+        for(l in listeners)
+            if(batch.listeners.indexOf(l) == -1) batch.listeners.push(l);
+        return batch;
+    }
+
+    static function createBatch() {
+        var events:Array<Event> = [];
+        var listeners:Array<(Event)->Void> = [];
+        return { 
+            events:events,
+            listeners:listeners,
+            fire: () -> {
+                var batch = Batch(events);
+                for(l in listeners) l(batch);
+            } 
+        };
+    }
 }
 
+enum Event {
+    Batch(events:Array<Event>);
+    Created(type:String);
+    ChildAdded(child:DataNode);
+    ChildRemoved(child:DataNode);
+    ParentAdded(parent:DataNode);
+    ParentRemoved(parent:DataNode);
+    FieldSet(name:String,val:String);
+}
 
-/**
- * Helper for DDOMInst
- */
-class Processor {
-    function process(selector:Selector):Array<DataNode> {
-        var results:Array<DataNode> = [];
-
-        var groups:Array<SelectorGroup> = selector;
-        if(groups.length == 0) return rootNodes(); // Empty selector returns all data
-        for(group in groups)
-            for(n in processGroup(group)) // Process each group/batch of tokens
-                if(results.indexOf(n) == -1) results.push(n); // Merge results of all selector groups
-
-        return results;
-    }
-
-    function rootNodes():Array<DataNode> {
-        return [];
-    }
-
-    function processGroup(group:SelectorGroup):Array<DataNode> {
-        // This recursively drills down the data nodes and selector tokens to find results
-        var newGroup = group.copy();
-        var token = newGroup.pop();
-        if(token == null) return rootNodes(); // End of the chain, start with root data nodes
-
-        var sourceNodes:Array<DataNode> = processGroup(newGroup); // Drill up the selector stack to get 'parent' data
-                 
-        var results:Array<DataNode>;
-        trace(token);
-        switch(token) {
-            case OfType(type, filters):
-                results = selectOfType(type, filters);
-            case Children(type, filters):
-                results = selectChildren(sourceNodes, type, filters);
-            case Parents(type, filter):
-                results = selectParents(sourceNodes, type, filter);
-            case Descendants(type, filter):
-                results = processFilter(getDescendants(sourceNodes, type, [], []), filter);
-        }
-
-        // Debug trace to watch data chain process
-        //trace(sourceNodes + " => " + token + " => " + results);
-
-        return results;
-    }
-
-    // Override 'select' methods below for custom processor
-    function selectOfType(type:String, filters:Array<TokenFilter>):Array<DataNode> {
-        var nodes = rootNodes(); // OfType is always at the start of the chain, use rootNodes() for default
-        if(type != "*" && type != ".") nodes = nodes.filter((n) -> n.type == type);
-        return processFilter(nodes, filters);
-    }
-
-    function selectChildren(parentNodes:Array<DataNode>, childType:String, filters:Array<TokenFilter>):Array<DataNode> {
-        var childNodes:Array<DataNode> = [];
-        if(childType == "*" || childType == ".") {
-            for(n in parentNodes) for(c in n.children) if(childNodes.indexOf(c) == -1) childNodes.push(c);
-        } else {
-            for(n in parentNodes)
-                for(c in n.children.filter((c) -> c.type == childType)) 
-                    if(childNodes.indexOf(c) == -1) childNodes.push(c);
-        }
-        return processFilter(childNodes, filters);
-    }
-
-    function selectParents(childNodes:Array<DataNode>, parentType:String, filters:Array<TokenFilter>):Array<DataNode> {
-        var parentNodes:Array<DataNode> = [];
-        if(parentType == "*" || parentType == ".") {
-            for(n in childNodes) for(p in n.parents) if(parentNodes.indexOf(p) == -1) parentNodes.push(p);
-        } else {
-            for(n in childNodes)
-                for(p in n.parents.filter((p) -> p.type == parentType)) if(parentNodes.indexOf(p) == -1) parentNodes.push(p);
-        }
-        return processFilter(parentNodes, filters);
-    }
-    
-    // selectDescendants runs via selectChildren and doesn't need to be overridden, but should be overridden for efficiency
-    function selectDescendants(parentNodes:Array<DataNode>, descType:String, filters:Array<TokenFilter>):Array<DataNode> {
-        return processFilter(getDescendants(parentNodes, descType, [], []), filters);
-    }
-
-    function getDescendants(nodes:Array<DataNode>, type:String, found:Array<DataNode>, searched:Array<DataNode>):Array<DataNode> {
-        for(n in nodes) {
-            if(searched.indexOf(n) == -1) {
-                searched.push(n);
-                if(n.type == type) if(found.indexOf(n) == -1) found.push(n);
-                getDescendants(selectChildren([n], "*", []), type, found, searched);
-            }
-        }
-        return found;
-    }
-    
-    // use processFilter as a 'fallback' filter, it would be better to do this work during query generation
-    function processFilter(nodes:Array<DataNode>, filters:Array<TokenFilter>):Array<DataNode> {
-        for(filter in filters) {
-            switch(filter) {
-                case Id(id):
-                    nodes = nodes.filter((n) -> n.fields["id"] == id);
-                case Pos(pos):
-                    if(pos >= nodes.length) nodes = [];
-                        else nodes = [ nodes[pos] ];
-                case Gt(pos):
-                    if(pos > nodes.length) nodes = [];
-                        else nodes = [ for(i in pos+1 ... nodes.length) nodes[i] ];
-                case Lt(pos):
-                    if(pos > 0) {
-                        if(pos > nodes.length) pos = nodes.length;
-                        nodes = [ for(i in 0 ... pos) nodes[i] ];
-                    } else {
-                        nodes = [];
-                    }
-                case ValEq(name, val):
-                    nodes = nodes.filter((n) -> n.fields[name] == val);
-                case ValNE(name, val):
-                    nodes = nodes.filter((n) -> n.fields[name] != val);
-                case OrderBy(name):
-                    nodes.sort((n1,n2) -> {
-                        var a = n1.fields.exists(name) ? n1.fields[name] : "";
-                        var b = n2.fields.exists(name) ? n2.fields[name] : "";
-                        if (a < b) return -1;
-                        if (a > b) return 1;
-                        return 0;
-                    });
-            }
-        }
-        return nodes;
-    }
+typedef EventBatch = {
+    events:Array<Event>,
+    listeners:Array<(Event)->Void>,
+    fire:Void -> Void
 }
