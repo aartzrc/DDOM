@@ -1,5 +1,6 @@
 package ddom;
 
+using Lambda;
 import ddom.Selector;
 import ddom.DDOM;
 
@@ -7,13 +8,21 @@ import ddom.DDOM;
 interface IProcessor {
     private function process(selector:Selector):Array<DataNode>;
     private function rootNodes():Array<DataNode>;
+    private function listen(select:Selector, callback:()->Void):()->Void;
 }
     
 /**
  * Base Processor, extend this to create a custom processor
  */
 class Processor {
+    // Cache + listen/event callback system
+    var cacheMap:Map<String, Array<DataNode>> = null;
+    var listenerMap:Map<String, ListenerGroup> = null;
+
     function process(selector:Selector):Array<DataNode> {
+        var cache = getCache(selector);
+        if(cache != null) return cache;
+
         var results:Array<DataNode> = [];
 
         var groups:Array<SelectorGroup> = selector;
@@ -22,11 +31,105 @@ class Processor {
             for(n in processGroup(group)) // Process each group/batch of tokens
                 if(results.indexOf(n) == -1) results.push(n); // Merge results of all selector groups
 
+        cacheMap.set(selector, results);
+
         return results;
     }
 
     function rootNodes():Array<DataNode> {
         return [];
+    }
+
+    function getCache(selStr:String):Array<DataNode> {
+        if(cacheMap == null) {
+            cacheMap = [];
+            attachNodes(); // Verify node change events are handled, cache is reset on all changes
+        }
+        if(!cacheMap.exists(selStr)) cacheMap.set(selStr, null);
+        return cacheMap[selStr];
+    }
+
+    function listen(selector:Selector, callback:()->Void):()->Void {
+        var selStr:String = selector;
+        if(listenerMap == null) listenerMap = [];
+        if(!listenerMap.exists(selStr)) listenerMap.set(selStr, {callbacks:[],lastResult:null});
+        var l = listenerMap[selStr];
+        l.callbacks.push(callback);
+        // This is a bit tricky, to avoid a redundant update we assume a select+process has already happened and set lastResult to the cache
+        if(l.lastResult == null) l.lastResult = process(selector);
+        return () -> {
+            l.callbacks.remove(callback);
+            if(l.callbacks.length == 0) {
+                listenerMap.remove(selStr);
+                if(!listenerMap.keys().hasNext())
+                    listenerMap = null;
+            }
+        }
+    }
+
+    var nodeDetachFuncs:Map<DataNode, ()->Void>;
+    function attachNodes() {
+        if(nodeDetachFuncs != null) return;
+        nodeDetachFuncs = [];
+        function recurseNode(n:DataNode) {
+            if(!nodeDetachFuncs.exists(n)) {
+                n.on(handleEvent);
+                nodeDetachFuncs.set(n, n.off.bind(handleEvent));
+                for(nn in n.children.concat(n.parents))
+                    recurseNode(nn);
+            }
+        }
+        for(n in rootNodes())
+            recurseNode(n);
+    }
+
+    function detachNodes() {
+        for(f in nodeDetachFuncs) f();
+        nodeDetachFuncs = null;
+    }
+
+    function handleEvent(e:Event) {
+        cacheMap = null; // Reset cache
+
+        var structChanges = false;
+        function checkForStructChanges(e:Event) {
+            if(structChanges) return; // Change already detected, ignore further tests
+            switch(e) {
+                case Created(_) | FieldSet(_): // Ignore
+                case ChildAdded(_) | ChildRemoved(_) | ParentAdded(_) | ParentRemoved(_):
+                    structChanges = true;
+                case Batch(events):
+                    for(e in events) checkForStructChanges(e);
+            }
+        }
+
+        checkForStructChanges(e);
+
+        if(structChanges) {
+            // Detach/reattach all listeners
+            // TODO: make this more efficient, it is crazy to rebuild the whole listener chain each time - just getting it working for now
+            detachNodes();
+            attachNodes();
+        }
+
+        // Rerun listening selectors and determine if any output changes have occurred
+        for(s => l in listenerMap) {
+            if(l.callbacks.length > 0) {
+                var newNodes = process(s);
+                var changed = l.lastResult == null || newNodes.length != l.lastResult.length;
+                if(!changed) {
+                    var i = 0;
+                    while(!changed && i < newNodes.length) {
+                        changed = l.lastResult[i] != newNodes[i];
+                        i++;
+                    }
+                }
+                if(changed) {
+                    l.lastResult = newNodes;
+                    for(c in l.callbacks) c();
+                }
+            }
+        }
     }
 
     function processGroup(group:SelectorGroup):Array<DataNode> {
@@ -136,4 +239,9 @@ class Processor {
         }
         return nodes;
     }
+}
+
+typedef ListenerGroup = {
+    callbacks:Array<()->Void>,
+    lastResult:Array<DataNode>
 }

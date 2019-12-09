@@ -39,6 +39,7 @@ class Main {
         d.attach((ddom) -> trace(ddom));
         d.name = "name changed"; // This should be ignored by the listener
         var u3 = DDOM.create("user");
+        trace("append");
         cache.append(u3); // This should result in an update
     }
 

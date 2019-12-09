@@ -16,6 +16,13 @@ class DBProcessor extends Processor implements IProcessor {
     var cache:Map<String, Map<String, DataNode>> = [];
     var useCache:Bool;
     var selectGroupCache:Map<String, Array<DataNode>> = [];
+
+	/**
+	 * Pass standard Haxe DB connection settings and TypeMap definitions per table, useCache defaults to true
+	 * @param params 
+	 * @param typeMaps 
+	 * @param useCache 
+	 */
 	public function new(params : {
 		host : String,
 		?port : Int,

@@ -8,7 +8,7 @@ import ddom.Processor.IProcessor;
 /**
  * The core instance. Once created and 'nodes' are accessed it becomes a cached data set. Use select() without an argument to re-run the selector.
  */
-@:allow(ddom.DDOM, ddom.DDOMIterator, ddom.SelectorProcessor, ddom.SelectorListener)
+@:allow(ddom.DDOM, ddom.DDOMIterator, ddom.Processor, ddom.SelectorListener)
 class DDOMInst extends Processor implements ISelectable implements IProcessor {
     var selector:Selector; // the selector for this DDOM instance
     var processors:Array<IProcessor>; // processors that will be called to generate the nodes array
@@ -190,7 +190,7 @@ class DDOMIterator {
     }
 }
 
-@:forward(iterator, append, children, parents, size, remove, select, attach)
+@:forward(iterator, append, children, parents, size, remove, select, attach, toString)
 abstract DDOM(DDOMInst) from DDOMInst #if debug to DDOMInst #end {
     @:op(a.b)
     public function fieldWrite(name:String, value:String) this.fieldWrite(name, value);
