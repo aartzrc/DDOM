@@ -10,7 +10,7 @@ class SelectorListener {
      * @param callback 
      * @return ->Void):()->Void
      */
-    public static function attach(ddom:DDOMInst, callback:(DDOM)->Void):()->Void {
+    public static function attach(ddom:DDOM, callback:(DDOM)->Void):()->Void {
         var l:Listener = {
             ddom:ddom,
             callback:callback,
@@ -36,13 +36,14 @@ class SelectorListener {
 
     static function attachToProcessors(l:Listener) {
         var handler = handleChange.bind(l);
-        for(p in l.ddom.processors)
-            p.listen(l.ddom.selector, handler);
+        var ddi = cast(l.ddom, DDOMInst);
+        for(p in ddi.processors)
+            l.listenDetachFuncs.push(p.listen(ddi.selector, handler));
     }
 }
 
 typedef Listener = {
-    ddom:DDOMInst,
+    ddom:DDOM,
     callback:(DDOM)->Void,
     listenDetachFuncs:Array<()->Void>
 }

@@ -57,13 +57,15 @@ class Processor {
         l.callbacks.push(callback);
         // This is a bit tricky, to avoid a redundant update we assume a select+process has already happened and set lastResult to the cache
         if(l.lastResult == null) l.lastResult = process(selector);
-        return () -> {
-            l.callbacks.remove(callback);
-            if(l.callbacks.length == 0) {
-                listenerMap.remove(selStr);
-                if(!listenerMap.keys().hasNext())
-                    listenerMap = null;
-            }
+        return unlisten.bind(selStr, l, callback);
+    }
+
+    function unlisten(selStr:String, l:ListenerGroup, callback:()->Void) {
+        l.callbacks.remove(callback);
+        if(l.callbacks.length == 0) {
+            listenerMap.remove(selStr);
+            if(!listenerMap.keys().hasNext())
+                listenerMap = null;
         }
     }
 
