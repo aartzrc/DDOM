@@ -1,5 +1,7 @@
 package ddom;
 
+using ddom.LambdaExt;
+
 import ddom.Selector;
 import ddom.Processor.IProcessor;
 
@@ -33,7 +35,7 @@ class DDOMInst extends Processor implements ISelectable implements IProcessor {
             // Get all unique nodes from the available processors
             for(processor in processors) {
                 for(n in processor.process(selector))
-                    if(_nodes.indexOf(n) == -1) _nodes.push(n);
+                    _nodes.pushUnique(n);
             }
         }
         return _nodes;
@@ -93,10 +95,8 @@ class DDOMInst extends Processor implements ISelectable implements IProcessor {
     public function remove(child:DDOM = null):DDOM {
         if(child == null) { // Detach myself from all parents
             var batch = DataNode.createBatch();
-            for(node in nodes) {
-                for(pn in node.parents)
-                    pn.removeChild(node, batch);
-            }
+            for(node in nodes)
+                node.remove(batch);
             batch.fire();
             var ddom = new DDOMInst();
             ddom._nodes = nodes;
@@ -220,6 +220,15 @@ class DataNode {
         else fire(Created(type));
     }
 
+    function remove(batch:EventBatch = null) {
+        var fireBatch = batch == null;
+        batch = buildBatch(batch);
+        for(p in parents)
+            removeParent(p, batch);
+        batch.events.push(Removed(this));
+        if(fireBatch) batch.fire();
+    }
+
     function setField(name:String, val:String, batch:EventBatch = null) {
         if(fields[name] != val) {
             fields[name] = val;
@@ -237,8 +246,7 @@ class DataNode {
     }
 
     function addChild(child:DataNode, batch:EventBatch = null) {
-        if(children.indexOf(child) == -1) {
-            children.push(child);
+        if(children.pushUnique(child)) {
             var fireBatch = batch == null;
             batch = buildBatch(batch);
             batch.events.push(ChildAdded(child));
@@ -262,8 +270,7 @@ class DataNode {
     }
 
     function addParent(parent:DataNode, batch:EventBatch = null) {
-        if(parents.indexOf(parent) == -1) {
-            parents.push(parent);
+        if(parents.pushUnique(parent)) {
             var fireBatch = batch == null;
             batch = buildBatch(batch);
             batch.events.push(ParentAdded(parent));
@@ -287,8 +294,7 @@ class DataNode {
     }
 
     function on(callback:(Event)->Void) {
-        if(listeners.indexOf(callback) == -1)
-            listeners.push(callback);
+        listeners.pushUnique(callback);
     }
 
     function off(callback:(Event)->Void) {
@@ -311,7 +317,7 @@ class DataNode {
     function buildBatch(batch:EventBatch = null):EventBatch {
         if(batch == null) batch = createBatch();
         for(l in listeners)
-            if(batch.listeners.indexOf(l) == -1) batch.listeners.push(l);
+            batch.listeners.pushUnique(l);
         return batch;
     }
 
@@ -332,6 +338,7 @@ class DataNode {
 enum Event {
     Batch(events:Array<Event>);
     Created(type:String);
+    Removed(node:DataNode);
     ChildAdded(child:DataNode);
     ChildRemoved(child:DataNode);
     ParentAdded(parent:DataNode);

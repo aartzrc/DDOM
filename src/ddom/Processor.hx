@@ -1,6 +1,7 @@
 package ddom;
 
-using Lambda;
+using ddom.LambdaExt;
+
 import ddom.Selector;
 import ddom.DDOM;
 
@@ -29,7 +30,7 @@ class Processor {
         if(groups.length == 0) return rootNodes(); // Empty selector returns all data
         for(group in groups)
             for(n in processGroup(group)) // Process each group/batch of tokens
-                if(results.indexOf(n) == -1) results.push(n); // Merge results of all selector groups
+                results.pushUnique(n); // Merge results of all selector groups
 
         cacheMap.set(selector, results);
 
@@ -98,7 +99,7 @@ class Processor {
             if(structChanges) return; // Change already detected, ignore further tests
             switch(e) {
                 case Created(_) | FieldSet(_): // Ignore
-                case ChildAdded(_) | ChildRemoved(_) | ParentAdded(_) | ParentRemoved(_):
+                case ChildAdded(_) | ChildRemoved(_) | ParentAdded(_) | ParentRemoved(_) | Removed(_):
                     structChanges = true;
                 case Batch(events):
                     for(e in events) checkForStructChanges(e);
@@ -170,11 +171,11 @@ class Processor {
     function selectChildren(parentNodes:Array<DataNode>, childType:String, filters:Array<TokenFilter>):Array<DataNode> {
         var childNodes:Array<DataNode> = [];
         if(childType == "*" || childType == ".") {
-            for(n in parentNodes) for(c in n.children) if(childNodes.indexOf(c) == -1) childNodes.push(c);
+            for(n in parentNodes) for(c in n.children) childNodes.pushUnique(c);
         } else {
             for(n in parentNodes)
                 for(c in n.children.filter((c) -> c.type == childType)) 
-                    if(childNodes.indexOf(c) == -1) childNodes.push(c);
+                    childNodes.pushUnique(c);
         }
         return processFilter(childNodes, filters);
     }
@@ -182,10 +183,10 @@ class Processor {
     function selectParents(childNodes:Array<DataNode>, parentType:String, filters:Array<TokenFilter>):Array<DataNode> {
         var parentNodes:Array<DataNode> = [];
         if(parentType == "*" || parentType == ".") {
-            for(n in childNodes) for(p in n.parents) if(parentNodes.indexOf(p) == -1) parentNodes.push(p);
+            for(n in childNodes) for(p in n.parents) parentNodes.pushUnique(p);
         } else {
             for(n in childNodes)
-                for(p in n.parents.filter((p) -> p.type == parentType)) if(parentNodes.indexOf(p) == -1) parentNodes.push(p);
+                for(p in n.parents.filter((p) -> p.type == parentType)) parentNodes.pushUnique(p);
         }
         return processFilter(parentNodes, filters);
     }
@@ -197,9 +198,8 @@ class Processor {
 
     function getDescendants(nodes:Array<DataNode>, type:String, found:Array<DataNode>, searched:Array<DataNode>):Array<DataNode> {
         for(n in nodes) {
-            if(searched.indexOf(n) == -1) {
-                searched.push(n);
-                if(n.type == type) if(found.indexOf(n) == -1) found.push(n);
+            if(searched.pushUnique(n)) {
+                if(n.type == type) found.pushUnique(n);
                 getDescendants(selectChildren([n], "*", []), type, found, searched);
             }
         }

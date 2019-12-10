@@ -2,6 +2,7 @@ package ddom.db;
 
 import haxe.Timer;
 using Lambda;
+using ddom.LambdaExt;
 
 import ddom.DDOM;
 import ddom.Selector;
@@ -113,12 +114,8 @@ class DBProcessor extends Processor implements IProcessor {
                         sql = "select * from " + childType.table + " where " + childMap.parentIdCol + " in (" + pids.join(",") + ")";
                     }
 
-                    var result = c.request(sql);
-                    for(row in result) {
-                        var childNode = toDataNode(childType, row);
-                        if(childNodes.indexOf(childNode) == -1)
-                            childNodes.push(childNode);
-                    }
+                    for(row in c.request(sql))
+                        childNodes.pushUnique(toDataNode(childType, row));
                 }
             }
         }
@@ -148,12 +145,8 @@ class DBProcessor extends Processor implements IProcessor {
             }
             for(childMap => ids in idMap) {
                 var sql = "select * from " + parentTypeMap.table + " where " + parentTypeMap.idCol + " in (select " + childMap.parentIdCol + " from " + childMap.table + " where " + childMap.childIdCol + " in (" + ids.join(",") + "))";
-                var result = c.request(sql);
-                for(row in result) {
-                    var parentNode = toDataNode(parentTypeMap, row);
-                    if(parentNodes.indexOf(parentNode) == -1)
-                        parentNodes.push(parentNode);
-                }
+                for(row in c.request(sql))
+                    parentNodes.pushUnique(toDataNode(parentTypeMap, row));
             }
         }
         //trace("parents: " + (Timer.stamp() - t));
