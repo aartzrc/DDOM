@@ -10,6 +10,9 @@ import ddom.Processor;
 
 import sys.db.Mysql;
 
+/**
+ * A typical database processor, each table has a 'type' of data and fields. Parent-child relationships are provided via typeMaps.
+ */
 @:access(ddom.DDOMInst, ddom.DataNode)
 class DBProcessor extends Processor implements IProcessor {
     var c:sys.db.Connection;

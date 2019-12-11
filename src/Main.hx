@@ -23,8 +23,18 @@ class Main {
 
         //castTests();
 
-        attachDetachTests();
+        //attachDetachTests();
+
+        ddomDBTests();
 	}
+
+    static function ddomDBTests() {
+        var ddomConn = new DBProcessor({user:"bgp", pass:"bgp", host:"127.0.0.1", database:"proctrack"});
+
+        
+        
+        ddomConn.dispose();
+    }
 
     static function attachDetachTests() {
         var cache = DDOM.create("cache");

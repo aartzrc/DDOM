@@ -51,3 +51,12 @@ Example:
 6. Server probably contains no new results, but any new results can be appended, which fires to endpoint again
 7. After a few poll cycles, refresh the whole customer list to catch any deleted items
 8. Customer page closed, detach from selector, polling system drops the selector
+
+12/10/2019:
+Basic client-server system built, client keeps track of 'attached' selectors and polls for updates.
+New issues related to this:
+How to modify a client DataNode and send to server? All DataNodes on client should be 'listened' to and updates sent to server. Server can reply with sync data/etc.
+TODO: create a 'catch all' style database that can store anything a selector/update can throw at it
+DataNodes would need to be stored a bit differently to help optimize selector lookups
+id, type, fields (serialized Map<String,String>)
+parent/child assoc table
