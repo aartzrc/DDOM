@@ -4,6 +4,7 @@ using ddom.DDOM;
 using ddom.SelectorListener;
 import ddom.Selector;
 import ddom.db.DBProcessor;
+import ddom.db.DDOMDBProcessor;
 
 @:access(ddom.DDOMInst,ddom.DataNode)
 class Main {
@@ -29,9 +30,51 @@ class Main {
 	}
 
     static function ddomDBTests() {
-        var ddomConn = new DBProcessor({user:"bgp", pass:"bgp", host:"127.0.0.1", database:"proctrack"});
+        var ddomConn = new DDOMDBProcessor({user:"om", pass:"om", host:"127.0.0.1", database:"ddom"});
 
-        
+        // DataNodes store all 'events', this can be used to create a transaction after all changes are made
+        // ddomConn.cache contains all DataNodes that had some interaction
+
+        // for new data, does it work to create an in-memory DDOM then 'add' to DDOMDBProcessor? 
+        // it would add all DataNodes to the cache which would make them part of the current transaction, a 'flush' call would send them to the database
+        // once some data is in, most new data would be 'appended'
+
+        // DDOMDBProcessor needs to overwrite the 'id' field - ignore if a user has supplied an id? better to try parsing as int and load original node, then merge all fields to create the event log
+
+        // ISelectable: DDOMs can be 'selected'
+        // IProcessor: Selectors can be 'processed' and updates 'listened' to
+        // IStore: DDOMs can be 'added', changes viewed as a 'transaction', and changes saved via 'commit'
+        // IStore is just a DDOM 'cache' ? yes, and that can be used as a generic tool to build up a transaction
+        // Then the DB backing stores can have a method to take an IStore and save it via a 'commit' call or something - this would be application specific
+
+        // IStore seems like a good idea
+        // Data convert/transfer for example: a source DB gets 'selected' from, a DDOM results. 'add' to an IStore and all create/etc events come through with the DataNodes. 'commit' the IStore to a new database and it can re-create the operations for storing the DataNodes
+        // Load data/modify/commit example: 'select' some data, store the timestamp, make some changes, 'commit' back to DB with only changes after the timestamp. only update events will be logged.
+        // Some events would be exceptions, such as a 'create' event even though a datanode already exists
+
+        // A client would use the same system: create DDOMs, move stuff around/etc. 'add' to a client-side IStore, then 'commit' to the server source.
+        // 'commit' could respond via callback to notify that data has been saved and ids generated etc. original datanodes would have been updated by the time the callback is executed.
+
+        // Does IStore need to isolate the nodes?
+        // not on server because each pass would be single threaded and stateless, no other events/threads would be modifying things.
+        // on the client it could happen that a user modifies some data, then the server sends and update which reverts the data because the user modification is committed
+        // if client commits are single-thread and small this isn't a problem, but an IStore might be used for a dialog instance where all changes are tracked and only committed at the end - this would require a 'clone' of the origin DataNodes
+        // how about this: when a server poll comes back with update data, compare the previous response timestamp to any change events, if events have occurred between the last pass and current pass, those events are 'correct' for the current client
+        // no.. there's a potential for the client to get stuck in a state that will never be correct relative to the server. if data is never 'committed' it will always appear different on the client compared to the actual server data
+        // has to be a transaction system that clones the data nodes
+        // the transaction would mark it's creation time, and when nodes get added...
+
+        // this seems like the best option so far:
+        // make a transaction that is 'ISelectable', provide it with a starting DDOM?
+        // only the 'selected' data would become isolated, so multiple selects would be required to build up the cloned data
+        // the cloned/selected items would point back to their parents/children directly so care would need to be taken to not interact with the DataNodes incorrectly
+        // an extension method on DDOM would look good. like DDOM.select("> customer#2 > items").beginTransaction();
+        // beginTransaction would return a new DDOM with '_nodes' being isolated so modifications could happen.
+        // a select on the original transaction would need to continue the isolation process, could the transaction become the processor for all future selects?
+        // maybe that is all beginTransaction does, simply wrap the original DDOM processors in a new processor that caches and isolates data
+        // any backing processor (DB/etc) would automatically get called, but then pass-thru data becomes part of the transaction. DataNodes get cloned, but stripped of all events so only events within the transaction scope are logged.
+        // cloned nodes would need pointers back to origin nodes so a commit could occur even without id/etc mappings (like client-side only data management)
+        // a database store would take the transaction and pull all events/updates and send to the DB
         
         ddomConn.dispose();
     }

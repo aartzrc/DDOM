@@ -60,3 +60,13 @@ TODO: create a 'catch all' style database that can store anything a selector/upd
 DataNodes would need to be stored a bit differently to help optimize selector lookups
 id, type, fields (serialized Map<String,String>)
 parent/child assoc table
+store ALL changes to each DataNode to allow history data - need a 'user' table to flag who did what? or just store all events as children of the DataNode, and events can point to a user 'child'
+essentially 'history' data doesn't need to be its own system - it should be part of the application logic instead of a dedicated system. just push it into the data tables and hope the database can handle it!
+it should be impossible to fully delete a data node once it is in the datbase. rather than 'delete' it would simply be 'detached' from all parents.
+as an example, if a customer was created and attached to the 'customers' node and then removed, they could still be found in the 'all customers' listing. so this will take some tricks to keep data isolated. maybe a 'removedCustomers' parent and a 'liveCustomers' parent that locks down what is visible.
+
+switch 'id' field to an int value to improve lookups. use id+type as the PK. when a client creates a new datanode and attaches to a node that is part of the source cache, it should be sent to the server and receive an id back.
+
+12/11/2019:
+a 'transaction' type system is needed to create/change nodes and save to the database
+this is essentially an EventBatch, and 'fire' would commit the transaction
