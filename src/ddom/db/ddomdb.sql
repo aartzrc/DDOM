@@ -1,13 +1,13 @@
--- MySQL dump 10.13  Distrib 5.7.17, for Win64 (x86_64)
+-- MySQL dump 10.13  Distrib 8.0.12, for Win64 (x86_64)
 --
 -- Host: localhost    Database: ddom
 -- ------------------------------------------------------
--- Server version	5.7.18-log
+-- Server version	8.0.12
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8 */;
+ SET NAMES utf8 ;
 /*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
 /*!40103 SET TIME_ZONE='+00:00' */;
 /*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
@@ -21,9 +21,9 @@
 
 DROP TABLE IF EXISTS `datanode`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+ SET character_set_client = utf8mb4 ;
 CREATE TABLE `datanode` (
-  `id` varchar(36) NOT NULL,
+  `id` int(10) unsigned NOT NULL,
   `type` varchar(255) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -35,12 +35,13 @@ CREATE TABLE `datanode` (
 
 DROP TABLE IF EXISTS `fields`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+ SET character_set_client = utf8mb4 ;
 CREATE TABLE `fields` (
-  `datanode_id` varchar(36) NOT NULL,
+  `datanode_id` int(10) unsigned NOT NULL,
   `name` varchar(255) NOT NULL,
   `val` mediumtext,
-  PRIMARY KEY (`datanode_id`,`name`)
+  PRIMARY KEY (`datanode_id`,`name`),
+  CONSTRAINT `datanode_id` FOREIGN KEY (`datanode_id`) REFERENCES `datanode` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -50,11 +51,14 @@ CREATE TABLE `fields` (
 
 DROP TABLE IF EXISTS `parent_child`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+ SET character_set_client = utf8mb4 ;
 CREATE TABLE `parent_child` (
-  `parent_id` varchar(36) NOT NULL,
-  `child_id` varchar(36) NOT NULL,
-  PRIMARY KEY (`parent_id`,`child_id`)
+  `parent_id` int(10) unsigned NOT NULL,
+  `child_id` int(10) unsigned NOT NULL,
+  PRIMARY KEY (`parent_id`,`child_id`),
+  KEY `child_id_idx` (`child_id`),
+  CONSTRAINT `child_id` FOREIGN KEY (`child_id`) REFERENCES `datanode` (`id`),
+  CONSTRAINT `parent_id` FOREIGN KEY (`parent_id`) REFERENCES `datanode` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -67,4 +71,4 @@ CREATE TABLE `parent_child` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2019-12-10 22:05:32
+-- Dump completed on 2019-12-12  8:10:26
