@@ -75,6 +75,12 @@ class Main {
         // any backing processor (DB/etc) would automatically get called, but then pass-thru data becomes part of the transaction. DataNodes get cloned, but stripped of all events so only events within the transaction scope are logged.
         // cloned nodes would need pointers back to origin nodes so a commit could occur even without id/etc mappings (like client-side only data management)
         // a database store would take the transaction and pull all events/updates and send to the DB
+
+        // during a save/write operation, the DB would overwrite any 'id' field. as long as the data goes back to the client to keep things in sync this should be ok.
+
+        // direct changes (outside of a transaction) should also be monitored on the client side, so simple updates are quick
+        // more complex updates should be handled within a transaction
+        // all updates could be handled within a transaction on the server side
         
         ddomConn.dispose();
     }
