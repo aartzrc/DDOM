@@ -30,7 +30,7 @@ async client to server system - extension methods attach/detach that use a base 
 all `DataNodes` should track their changes (events) so they can be reviewed as a transaction and sent to a data source as an update.
 
 12/7/2019:
-Create a 'SelectorListener' class that takes a DDOM and uses the selector+processors to return any node list changes.
+Create a 'SelectorListener' class that takes a DDOM and uses the selector+processor to return any node list changes.
 Field changes are ignored (unless they effect the node list in some way). A 'FieldListener' would work the same but attach to all DataNodes in the DDOM.
 'SelectorListener' would need to listen to ALL data nodes in the pool (and add/remove listeners when parents/children are changed), and re-run all selectors.
 It would be best to make it so IProcessors and Selectors can be added/removed, so it becomes a reusable instance.

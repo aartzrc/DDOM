@@ -3,10 +3,6 @@ package ddom;
 using Lambda;
 using StringTools;
 
-interface ISelectable {
-    public function select(selector:Selector = null):DDOM;
-}
-
 @:forward(length)
 abstract Selector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<SelectorGroup> {
     @:from

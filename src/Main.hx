@@ -3,6 +3,7 @@ using Lambda;
 using ddom.DDOM;
 using ddom.SelectorListener;
 import ddom.Selector;
+import ddom.DataNode;
 import ddom.db.DBProcessor;
 import ddom.db.DDOMDBProcessor;
 
@@ -26,8 +27,42 @@ class Main {
 
         //attachDetachTests();
 
-        ddomDBTests();
+        //ddomDBTests();
+
+        //transactionTests(); // Transactions are beyond the scope of DDOM - each processor has it's own way to create a transaction so it became too complex
 	}
+
+    /*static function transactionTests() {
+        // Create some objects
+        var session = DDOM.create("session");
+        session.id = "home-server";
+        var user = DDOM.create("user");
+        user.id = "user-with-id";
+        session.append(user);
+        var cart = DDOM.create("cart");
+        user.append(cart);
+        var user = DDOM.create("user");
+        session.append(user);
+        var cart = DDOM.create("cart");
+        user.append(cart);
+        var user = DDOM.create("user");
+        session.append(user);
+        user.id = "user-without-cart";
+        var cart = DDOM.create("cart");
+        cart.id = "cart-without-user";
+
+        var users = session.select("* > user");
+        trace(users);
+
+        var t = new Transaction([session]);
+        var users_t = t.select("* > user");
+        users_t.newNew = "TEST";
+        users_t.append(DDOM.create("order"));
+        trace(users_t.children());
+        users_t.children().order = "ORDER!";
+        trace(t);
+        //t.commit();
+    }*/
 
     static function ddomDBTests() {
         var ddomConn = new DDOMDBProcessor({user:"om", pass:"om", host:"127.0.0.1", database:"ddom"});
@@ -71,7 +106,7 @@ class Main {
         // an extension method on DDOM would look good. like DDOM.select("> customer#2 > items").beginTransaction();
         // beginTransaction would return a new DDOM with '_nodes' being isolated so modifications could happen.
         // a select on the original transaction would need to continue the isolation process, could the transaction become the processor for all future selects?
-        // maybe that is all beginTransaction does, simply wrap the original DDOM processors in a new processor that caches and isolates data
+        // maybe that is all beginTransaction does, simply wrap the original DDOM processor in a new processor that caches and isolates data
         // any backing processor (DB/etc) would automatically get called, but then pass-thru data becomes part of the transaction. DataNodes get cloned, but stripped of all events so only events within the transaction scope are logged.
         // cloned nodes would need pointers back to origin nodes so a commit could occur even without id/etc mappings (like client-side only data management)
         // a database store would take the transaction and pull all events/updates and send to the DB
@@ -380,7 +415,7 @@ class Main {
         user.remove();
 
         // No children
-        trace(sessions.children().size());
+        trace(sessions.children());
 
         // Verify the user is available
         trace(user);

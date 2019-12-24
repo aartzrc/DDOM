@@ -35,6 +35,7 @@ class DBProcessor extends Processor implements IProcessor {
 		?socket : String,
 		database : String
 	}, typeMaps:Array<TypeMap> = null, useCache:Bool = true) {
+        super([]);
         if(typeMaps != null) {
             for(t in typeMaps) {
                 typeMap.set(t.type, t);
@@ -49,7 +50,7 @@ class DBProcessor extends Processor implements IProcessor {
     }
 
     public function select(selector:Selector = null):DDOM {
-        return new DDOMInst([this], selector);
+        return new DDOMInst(this, selector);
     }
 
     override function processGroup(group:SelectorGroup):Array<DataNode> {

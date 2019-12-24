@@ -4,21 +4,26 @@ using ddom.LambdaExt;
 
 import ddom.Selector;
 import ddom.DDOM;
+import ddom.DataNode;
 
-@:allow(ddom.SelectorListener)
+@:allow(ddom.SelectorListener, ddom.DDOMInst)
 interface IProcessor {
     private function process(selector:Selector):Array<DataNode>;
-    private function rootNodes():Array<DataNode>;
     private function listen(select:Selector, callback:()->Void):()->Void;
 }
     
 /**
  * Base Processor, extend this to create a custom processor
  */
-class Processor {
+class Processor implements IProcessor {
     // Cache + listen/event callback system
     var cacheMap:Map<String, Array<DataNode>> = null;
     var listenerMap:Map<String, ListenerGroup> = null;
+
+    function new(nodes:Array<DataNode>) {
+        this._rootNodes = nodes;
+        attachNodes(); // Always listen to nodes, this keeps cache and listeners notified
+    }
 
     function process(selector:Selector):Array<DataNode> {
         var cache = getCache(selector);
@@ -37,15 +42,24 @@ class Processor {
         return results;
     }
 
+    /**
+     * Create a new 'detached' DDOM instance
+     * @param type 
+     * @return DDOM
+     */
+    public static function create(type:String):DDOM {
+        var processor = new Processor([new DataNode(type)]);
+        return new DDOMInst(processor, "");
+    }
+
+    var _rootNodes:Array<DataNode> = [];
     function rootNodes():Array<DataNode> {
-        return [];
+        return _rootNodes;
     }
 
     function getCache(selStr:String):Array<DataNode> {
-        if(cacheMap == null) {
-            cacheMap = [];
-            attachNodes(); // Verify node change events are handled, cache is reset on all changes
-        }
+        if(cacheMap == null)
+            cacheMap = [];    
         if(!cacheMap.exists(selStr)) cacheMap.set(selStr, null);
         return cacheMap[selStr];
     }
@@ -65,8 +79,10 @@ class Processor {
         l.callbacks.remove(callback);
         if(l.callbacks.length == 0) {
             listenerMap.remove(selStr);
-            if(!listenerMap.keys().hasNext())
+            if(!listenerMap.keys().hasNext()) {
                 listenerMap = null;
+                //detachNodes(); // Do not detach nodes - even if no listeners we need to know about structure changes to keep cache in sync
+            }
         }
     }
 
@@ -93,6 +109,7 @@ class Processor {
 
     function handleEvent(e:Event) {
         cacheMap = null; // Reset cache
+        //if(listenerMap == null) return; // Always listen for structure changes
 
         var structChanges = false;
         function checkForStructChanges(e:Event) {
@@ -114,6 +131,8 @@ class Processor {
             detachNodes();
             attachNodes();
         }
+
+        if(listenerMap == null) return;
 
         // Rerun listening selectors and determine if any output changes have occurred
         for(s => l in listenerMap) {

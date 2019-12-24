@@ -14,7 +14,7 @@ import sys.db.Mysql;
  * A 'catch-all' processor, throw any DataNodes at it and it can handle any selector
  */
 @:access(ddom.DDOMInst, ddom.DataNode)
-class DDOMDBProcessor extends Processor implements IProcessor implements ISelectable {
+class DDOMDBProcessor extends Processor implements IProcessor {
     var c:sys.db.Connection;
     var cache:Map<String, Map<String, DataNode>> = [];
     var selectGroupCache:Map<String, Array<DataNode>> = [];
@@ -32,6 +32,7 @@ class DDOMDBProcessor extends Processor implements IProcessor implements ISelect
 		?socket : String,
 		database : String
 	}) {
+        super([]);
         c = Mysql.connect(params);
         // TODO: auto-gen the DB tables?
     }
@@ -41,7 +42,7 @@ class DDOMDBProcessor extends Processor implements IProcessor implements ISelect
     }
 
     public function select(selector:Selector = null):DDOM {
-        return new DDOMInst([this], selector);
+        return new DDOMInst(this, selector);
     }
 
     override function processGroup(group:SelectorGroup):Array<DataNode> {

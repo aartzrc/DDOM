@@ -10,16 +10,16 @@ class SelectorListener {
      * @param callback 
      * @return ->Void):()->Void
      */
-    public static function attach(ddom:DDOM, callback:(DDOM)->Void):()->Void {
+    public static function attach(ddom:DDOM, callback:(DDOM)->Void, immediate:Bool = true):()->Void {
         var l:Listener = {
             ddom:ddom,
             callback:callback,
             listenDetachFuncs:[]
         }
-        attachToProcessors(l);
+        attachToProcessor(l);
 
         // Return the current result immediately
-        handleChange(l);
+        if(immediate) handleChange(l);
 
         return detach.bind(l);
     }
@@ -34,11 +34,10 @@ class SelectorListener {
         l.callback(l.ddom);
     }
 
-    static function attachToProcessors(l:Listener) {
+    static function attachToProcessor(l:Listener) {
         var handler = handleChange.bind(l);
         var ddi = cast(l.ddom, DDOMInst);
-        for(p in ddi.processors)
-            l.listenDetachFuncs.push(p.listen(ddi.selector, handler));
+        l.listenDetachFuncs.push(ddi.processor.listen(ddi.selector, handler));
     }
 }
 
