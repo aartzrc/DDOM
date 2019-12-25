@@ -2,13 +2,13 @@ package ddom;
 
 import ddom.Selector;
 import ddom.Processor.IProcessor;
+import ddom.DataNode;
 
 /**
  * The core instance. Once created and 'nodes' are accessed it becomes a cached data set. Use select() without an argument to re-run the selector.
  */
 @:allow(ddom.DDOM, ddom.DDOMIterator, ddom.Processor, ddom.SelectorListener)
 class DDOMInst {
-    // TODO: isolate Processor from DDOM - things are getting too complex, and it will make Transactions easier to implement having things cleaned up
     var selector:Selector; // the selector for this DDOM instance
     var processor:IProcessor; // processor that will be called to generate the nodes array
     var nodes(get,never):Array<DataNode>; // nodes will be lazy created when needed
@@ -164,5 +164,8 @@ abstract DDOM(DDOMInst) from DDOMInst #if debug to DDOMInst #end {
     @:op([]) 
     public function arrayRead(n:Int) return this.arrayRead(n);
 
-    public static function create(type:String):DDOM return Processor.create(type);
+    public static function create(type:String):DDOM {
+        var processor = new Processor([new DataNode(type)]);
+        return new DDOMInst(processor, "");
+    }
 }

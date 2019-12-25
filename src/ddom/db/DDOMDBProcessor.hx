@@ -1,5 +1,7 @@
 package ddom.db;
 
+import ddom.DataNode.Event;
+import ddom.DataNode.EventBatch;
 import haxe.Timer;
 using Lambda;
 using ddom.LambdaExt;
@@ -16,7 +18,7 @@ import sys.db.Mysql;
 @:access(ddom.DDOMInst, ddom.DataNode)
 class DDOMDBProcessor extends Processor implements IProcessor {
     var c:sys.db.Connection;
-    var cache:Map<String, Map<String, DataNode>> = [];
+    var cache:Map<String, Map<Int, DataNode>> = [];
     var selectGroupCache:Map<String, Array<DataNode>> = [];
 
 	/**
@@ -41,6 +43,45 @@ class DDOMDBProcessor extends Processor implements IProcessor {
         if(c != null) c.close();
     }
 
+    public function processEventBatch(batch:EventBatch) {
+        c.startTransaction();
+        try {
+            function handleEvents(events:Array<Event>) {
+                for(e in events) {
+                    switch(e) {
+                        case Batch(newEvents):
+                            handleEvents(newEvents);
+                        case Created(node):
+                            c.request("INSERT INTO datanode (type) VALUES (" + c.quote(node.type) + ")");
+                            node.setField("id", Std.string(c.lastInsertId()));
+                        case FieldSet(node, name, val):
+                            if(name != "id") {
+                                if(val == null) c.request("DELETE FROM fields WHERE datanode_id=" + node.getField("id") + " AND name=" + c.quote(name));
+                                    else c.request("INSERT INTO fields (datanode_id,name,val) VALUES (" + node.getField("id") + "," + c.quote(name) + "," + c.quote(val) + ") ON DUPLICATE KEY UPDATE val=" + c.quote(val));
+                            }
+                        case Removed(node):
+                            c.request("DELETE FROM fields WHERE datanode_id=" + node.getField("id"));
+                            c.request("DELETE FROM datanode WHERE id=" + node.getField("id"));
+                        case ChildAdded(node, child):
+                            c.request("INSERT INTO parent_child (parent_id, child_id) VALUES (" + node.getField("id") + "," + child.getField("id") + ") ON DUPLICATE KEY UPDATE child_id=child_id");
+                        case ParentAdded(node, parent):
+                            c.request("INSERT INTO parent_child (child_id, parent_id) VALUES (" + node.getField("id") + "," + parent.getField("id") + ") ON DUPLICATE KEY UPDATE child_id=child_id");
+                        case ChildRemoved(node, child):
+                            c.request("DELETE FROM parent_child WHERE parent_id=" + node.getField("id") + " AND child_id=" + child.getField("id"));
+                        case ParentRemoved(node, parent):
+                            c.request("DELETE FROM parent_child WHERE parent_id=" + parent.getField("id") + " AND child_id=" + node.getField("id"));
+                    }
+                }
+            }
+            handleEvents(batch.events);
+        } catch (e:Dynamic) {
+            c.rollback();
+            throw e;
+        }
+        c.commit();
+        batch.events = [];
+    }
+
     public function select(selector:Selector = null):DDOM {
         return new DDOMInst(this, selector);
     }
@@ -56,7 +97,10 @@ class DDOMDBProcessor extends Processor implements IProcessor {
     override function selectOfType(type:String, filters:Array<TokenFilter>):Array<DataNode> {
         //var t = Timer.stamp();
         var results:Array<DataNode> = [];
-        var sql = buildSQL(type, filters);
+        var sql = "SELECT id, type, name, val FROM datanode JOIN fields ON datanode.id = fields.datanode_id";
+        if(type != "." && type != "*") // Check for get EVERYTHING - this should be blocked?
+            sql += " WHERE type=" + c.quote(type);
+        //trace(sql);
         try {
             var result = c.request(sql);
             for(row in result) results.push(toDataNode(row));
@@ -70,64 +114,116 @@ class DDOMDBProcessor extends Processor implements IProcessor {
         return processFilter(results, filters);
     }
 
+    override function selectChildren(parentNodes:Array<DataNode>, childType:String, filters:Array<TokenFilter>):Array<DataNode> {
+        var childNodes:Array<DataNode> = [];
+        var parentIds = parentNodes.map((n) -> n.getField("id"));
+        var sql = "SELECT id, type, name, val FROM datanode JOIN fields ON datanode.id = fields.datanode_id JOIN parent_child ON parent_child.child_id = datanode.id WHERE parent_child.parent_id IN (" + parentIds.join(",") + ")";
+        if(childType != "." && childType != "*")
+            sql += " AND type=" + c.quote(childType);
+        //trace(sql);
+        try {
+            var result = c.request(sql);
+            for(row in result) childNodes.push(toDataNode(row));
+        } catch (e:Dynamic) {
+#if debug
+            trace(sql);
+            trace(e);
+#end
+        }
+        return processFilter(childNodes, filters);
+    }
+
+    override function selectParents(childNodes:Array<DataNode>, parentType:String, filters:Array<TokenFilter>):Array<DataNode> {
+        var parentNodes:Array<DataNode> = [];
+        var childIds = childNodes.map((n) -> n.getField("id"));
+        var sql = "SELECT id, type, name, val FROM datanode JOIN fields ON datanode.id = fields.datanode_id JOIN parent_child ON parent_child.parent_id = datanode.id WHERE parent_child.child_id IN (" + childIds.join(",") + ")";
+        if(parentType != "." && parentType != "*")
+            sql += " AND type=" + c.quote(parentType);
+        //trace(sql);
+        try {
+            var result = c.request(sql);
+            for(row in result) parentNodes.push(toDataNode(row));
+        } catch (e:Dynamic) {
+#if debug
+            trace(sql);
+            trace(e);
+#end
+        }
+        return processFilter(parentNodes, filters);
+    }
+
     function toDataNode(row:Dynamic):DataNode {
-        function checkCache(node:DataNode) {
-            var type = node.type;
-            var id = node.fields["id"];
-            if(id == null) return node; // Cannot cache without id
-            if(!cache.exists(type)) cache.set(type, new Map<String, DataNode>());
+        function checkCache(type:String, id:Int) {
+            if(!cache.exists(type)) cache.set(type, new Map<Int, DataNode>());
             if(!cache[type].exists(id)) {
+                var node = new DataNode(type);
+                node.setField("id", Std.string(id));
                 cache[type][id] = node;
                 return node;
             }
             return cache[type][id];
         }
-        var dn = new DataNode(row.type);
-        dn.fields = [ for(f in Reflect.fields(row)) f => Std.string(Reflect.field(row, f)) ];
-        return checkCache(dn);
+        var node = checkCache(row.type, row.id);
+        node.setField(row.name, row.val);
+        return node;
+    }
+}
+
+class DataNode_T extends DataNode {
+    static var transactionBatch:EventBatch = null;
+    static var dbProcessor:DDOMDBProcessor = null;
+    public static function startTransaction(processor:DDOMDBProcessor) {
+        if(transactionBatch != null) throw "Only one Transaction allowed";
+        transactionBatch = DataNode.createBatch();
+        dbProcessor = processor;
     }
 
-    function buildSQL(type:String, filters:Array<TokenFilter>) {
-        var sql = "SELECT id, type, name, val FROM datanode JOIN fields ON datanode.id = fields.datanode_id";
-        var where:Array<String> = [];
-        if(type != "." && type != "*") { // Check for get EVERYTHING - this should be blocked?
-            where.push("type=" + c.quote(type));
-        }
-        var limits:{lower:Null<Int>, upper:Null<Int>} = {lower:null,upper:null};
-        var orderby:Array<String> = [];
-        for(filter in filters) {
-            switch(filter) {
-                case Id(id):
-                    where.push("id=" + c.quote(id));
-                case Pos(pos):
-                    limits.upper = pos;
-                    limits.lower = pos;
-                case Gt(pos):
-                    limits.lower = pos+1;
-                case Lt(pos):
-                    limits.upper = pos;
-                case ValEq(name, val):
-                    where.push("(name = " + c.quote(name) + " and val = " + c.quote(val) + ")");
-                case ValNE(name, val):
-                    where.push("(name = " + c.quote(name) + " and val != " + c.quote(val) + ")");
-                case OrderBy(name):
-                    orderby.push(name);
-            }
-        }
-        if(where.length > 0)
-            sql += " WHERE " + where.join(" AND ");
+    public static function commitTransaction() {
+        dbProcessor.processEventBatch(transactionBatch);
+        clearTransaction();
+    }
 
-        if(orderby.length > 0)
-            sql += " ORDER BY " + orderby.join(",");
+    public static function clearTransaction() {
+        transactionBatch = null;
+        dbProcessor = null;
+    }
 
-        if(limits.lower != null && limits.upper != null) {
-            sql += " LIMIT " + limits.lower + "," + (limits.lower-limits.upper);
-        } else if(limits.lower != null) {
-            sql += " LIMIT " + limits.lower + ",18446744073709551615";
-        } else if(limits.upper != null) {
-            sql += " LIMIT " + limits.upper;
-        }
+    function new(type:String) {
+        if(transactionBatch == null) throw "DataNode_T only works within a Transaction";
+        super(type, transactionBatch);
+    }
 
-        return sql;
+    override function remove(batch:EventBatch = null) {
+        if(transactionBatch == null) throw "DataNode_T only works within a Transaction";
+        super.remove(transactionBatch);
+    }
+
+    override function setField(name:String, val:String, batch:EventBatch = null) {
+        if(transactionBatch == null) throw "DataNode_T only works within a Transaction";
+        super.setField(name, val, transactionBatch);
+    }
+
+    override function addChild(child:DataNode, batch:EventBatch = null) {
+        if(transactionBatch == null) throw "DataNode_T only works within a Transaction";
+        if(!Std.is(child, DataNode_T)) throw "child must be a DataNode_T";
+        return super.addChild(child, transactionBatch);
+    }
+
+    override function removeChild(child:DataNode, batch:EventBatch = null) {
+        if(transactionBatch == null) throw "DataNode_T only works within a Transaction";
+        if(!Std.is(child, DataNode_T)) throw "child must be a DataNode_T";
+        return super.removeChild(child, transactionBatch);
+    }
+
+    override function addParent(parent:DataNode, batch:EventBatch = null) {
+        if(transactionBatch == null) throw "DataNode_T only works within a Transaction";
+        if(!Std.is(parent, DataNode_T)) throw "parent must be a DataNode_T";
+        return super.addParent(parent, transactionBatch);
+    }
+
+    override function removeParent(parent:DataNode, batch:EventBatch = null) {
+        if(transactionBatch == null) throw "DataNode_T only works within a Transaction";
+        if(!Std.is(parent, DataNode_T)) throw "parent must be a DataNode_T";
+        return super.removeParent(parent, transactionBatch);
     }
 }

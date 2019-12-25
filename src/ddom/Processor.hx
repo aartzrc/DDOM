@@ -10,11 +10,13 @@ import ddom.DataNode;
 interface IProcessor {
     private function process(selector:Selector):Array<DataNode>;
     private function listen(select:Selector, callback:()->Void):()->Void;
+    // Gave up on Transactions - better to allow 'cloning' on a DDOM then an EventBatch to push data back to the origin?
 }
     
 /**
  * Base Processor, extend this to create a custom processor
  */
+@:allow(ddom.DDOM)
 class Processor implements IProcessor {
     // Cache + listen/event callback system
     var cacheMap:Map<String, Array<DataNode>> = null;
@@ -40,16 +42,6 @@ class Processor implements IProcessor {
         cacheMap.set(selector, results);
 
         return results;
-    }
-
-    /**
-     * Create a new 'detached' DDOM instance
-     * @param type 
-     * @return DDOM
-     */
-    public static function create(type:String):DDOM {
-        var processor = new Processor([new DataNode(type)]);
-        return new DDOMInst(processor, "");
     }
 
     var _rootNodes:Array<DataNode> = [];

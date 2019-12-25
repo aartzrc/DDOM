@@ -3,7 +3,7 @@ package ddom;
 using ddom.LambdaExt;
 
 // This is the actual data item, DDOM wraps this
-@:allow(ddom.DDOMInst, ddom.Processor, ddom.SelectorListener)
+@:allow(ddom.DDOMInst, ddom.DDOM, ddom.Processor, ddom.SelectorListener)
 class DataNode {
     var type:String;
     var fields:Map<String,String> = [];
@@ -16,8 +16,8 @@ class DataNode {
     
 	function new(type:String, batch:EventBatch = null) {
         this.type = type;
-        if(batch != null) batch.events.push(Created(type));
-        else fire(Created(type));
+        if(batch != null) batch.events.push(Created(this));
+        else fire(Created(this));
     }
 
     function remove(batch:EventBatch = null) {
@@ -34,14 +34,14 @@ class DataNode {
             fields[name] = val;
             if(batch != null) {
                 batch = buildBatch(batch);
-                batch.events.push(FieldSet(name, val));
+                batch.events.push(FieldSet(this, name, val));
             } else {
-                fire(FieldSet(name, val));
+                fire(FieldSet(this, name, val));
             }
         }
     }
 
-    function getField(name:String) {
+    inline function getField(name:String) {
         return fields[name];
     }
 
@@ -49,7 +49,7 @@ class DataNode {
         if(children.pushUnique(child)) {
             var fireBatch = batch == null;
             batch = buildBatch(batch);
-            batch.events.push(ChildAdded(child));
+            batch.events.push(ChildAdded(this, child));
             child.addParent(this, batch);
             if(fireBatch) batch.fire();
             return true;
@@ -61,7 +61,7 @@ class DataNode {
         if(children.remove(child)) {
             var fireBatch = batch == null;
             batch = buildBatch(batch);
-            batch.events.push(ChildRemoved(child));
+            batch.events.push(ChildRemoved(this, child));
             child.removeParent(this, batch);
             if(fireBatch) batch.fire();
             return true;
@@ -73,7 +73,7 @@ class DataNode {
         if(parents.pushUnique(parent)) {
             var fireBatch = batch == null;
             batch = buildBatch(batch);
-            batch.events.push(ParentAdded(parent));
+            batch.events.push(ParentAdded(this, parent));
             parent.addChild(this, batch);
             if(fireBatch) batch.fire();
             return true;
@@ -85,7 +85,7 @@ class DataNode {
         if(parents.remove(parent)) {
             var fireBatch = batch == null;
             batch = buildBatch(batch);
-            batch.events.push(ParentRemoved(parent));
+            batch.events.push(ParentRemoved(this, parent));
             parent.removeChild(this, batch);
             if(fireBatch) batch.fire();
             return true;
@@ -121,7 +121,7 @@ class DataNode {
         return batch;
     }
 
-    static function createBatch() {
+    static function createBatch():EventBatch {
         var events:Array<Event> = [];
         var listeners:Array<(Event)->Void> = [];
         return { 
@@ -137,13 +137,13 @@ class DataNode {
 
 enum Event {
     Batch(events:Array<Event>);
-    Created(type:String);
+    Created(node:DataNode);
     Removed(node:DataNode);
-    ChildAdded(child:DataNode);
-    ChildRemoved(child:DataNode);
-    ParentAdded(parent:DataNode);
-    ParentRemoved(parent:DataNode);
-    FieldSet(name:String,val:String);
+    ChildAdded(node:DataNode, child:DataNode);
+    ChildRemoved(node:DataNode, child:DataNode);
+    ParentAdded(node:DataNode, parent:DataNode);
+    ParentRemoved(node:DataNode, parent:DataNode);
+    FieldSet(node:DataNode, name:String,val:String);
 }
 
 typedef EventBatch = {

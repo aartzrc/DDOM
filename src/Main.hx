@@ -7,7 +7,7 @@ import ddom.DataNode;
 import ddom.db.DBProcessor;
 import ddom.db.DDOMDBProcessor;
 
-@:access(ddom.DDOMInst,ddom.DataNode)
+@:access(ddom.DDOMInst,ddom.DataNode, ddom.db.DataNode_T)
 class Main {
 	static function main() {
         //basicTests();
@@ -27,45 +27,33 @@ class Main {
 
         //attachDetachTests();
 
-        //ddomDBTests();
+        ddomDBTests();
 
         //transactionTests(); // Transactions are beyond the scope of DDOM - each processor has it's own way to create a transaction so it became too complex
 	}
 
-    /*static function transactionTests() {
-        // Create some objects
-        var session = DDOM.create("session");
-        session.id = "home-server";
-        var user = DDOM.create("user");
-        user.id = "user-with-id";
-        session.append(user);
-        var cart = DDOM.create("cart");
-        user.append(cart);
-        var user = DDOM.create("user");
-        session.append(user);
-        var cart = DDOM.create("cart");
-        user.append(cart);
-        var user = DDOM.create("user");
-        session.append(user);
-        user.id = "user-without-cart";
-        var cart = DDOM.create("cart");
-        cart.id = "cart-without-user";
-
-        var users = session.select("* > user");
-        trace(users);
-
-        var t = new Transaction([session]);
-        var users_t = t.select("* > user");
-        users_t.newNew = "TEST";
-        users_t.append(DDOM.create("order"));
-        trace(users_t.children());
-        users_t.children().order = "ORDER!";
-        trace(t);
-        //t.commit();
-    }*/
-
     static function ddomDBTests() {
         var ddomConn = new DDOMDBProcessor({user:"om", pass:"om", host:"127.0.0.1", database:"ddom"});
+
+        // Saving data must be more 'precise' - all changes get wrapped in an EventBatch and saved in a transaction
+        // It's easy to forget to append 'batch' to all the calls, any easy way to do a global batch?
+        // A batch must be used to maintain event order (timestamp isn't precise enough to re-create the order)
+        // DataNode would need to be extended/overridden? done via DataNode_T - not great but it'll work to keep things consistent
+        /*DataNode_T.startTransaction(ddomConn);
+        var user = new DataNode_T("user");
+        user.setField("name", "new user");
+        var session = new DataNode_T("session");
+        session.addParent(user);
+        session.setField("startTime", Std.string(Sys.time()));
+        DataNode_T.commitTransaction();*/
+
+        trace(ddomConn.select("user#16 > session < *"));
+
+        //trace(user);
+
+        //user.remove(batch);
+        //trace(batch);
+        //ddomConn.processEventBatch(batch);
 
         // DataNodes store all 'events', this can be used to create a transaction after all changes are made
         // ddomConn.cache contains all DataNodes that had some interaction
@@ -116,6 +104,11 @@ class Main {
         // direct changes (outside of a transaction) should also be monitored on the client side, so simple updates are quick
         // more complex updates should be handled within a transaction
         // all updates could be handled within a transaction on the server side
+
+        // 12/24/2019: the 'isolate on select' transaction doesn't work once any structure changes happen because the processor would need to know all nodes in the select chain to work properly
+        // A DB processor could possibly create a 'transaction' using this method, but an in-memory transaction quickly gets too difficult
+        // Rather than use transactions at all, just store the changes that need to occur and wrap them all in an EventBatch which simulates the transaction
+        // in the end - NO TRANSACTION SYSTEM
         
         ddomConn.dispose();
     }
@@ -445,7 +438,7 @@ abstract User(DataNode) from DataNode {
     public function onChange(field:String, callback:(String)->Void):()->Void {
         function handleEvent(e) {
             switch(e) {
-                case FieldSet(name, val):
+                case FieldSet(node, name, val):
                     if(name == field) callback(val);
                 case _:
                     // Not handled here
