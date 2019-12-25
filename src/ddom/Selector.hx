@@ -21,7 +21,7 @@ abstract Selector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<Selec
         :pos(x) get at position - eg: "cart > product:pos(0)" get the first product in the cart
         multiple 'filters' are possible per token - eg: user[firstname=joe]:order(lastname):pos(0) would get users with firstname of 'joe', order by lastname field, and get the first item
 
-        TODO: store the selector within the DDOM and make DDOM 'observable', when a data update occurs re-run the selector and notify any listeners
+        TODO: fix property selector [name=first name] is broken due to space being 'split'
     */
     static function tokenize(selector:String):Selector {
         function processGroup(sel:String) {

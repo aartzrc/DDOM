@@ -156,8 +156,7 @@ class DDOMDBProcessor extends Processor implements IProcessor {
         function checkCache(type:String, id:Int) {
             if(!cache.exists(type)) cache.set(type, new Map<Int, DataNode>());
             if(!cache[type].exists(id)) {
-                var node = new DataNode(type);
-                node.setField("id", Std.string(id));
+                var node = new DataNode(type, ["id" => Std.string(id)]);
                 cache[type][id] = node;
                 return node;
             }
@@ -188,9 +187,9 @@ class DataNode_T extends DataNode {
         dbProcessor = null;
     }
 
-    function new(type:String) {
+    function new(type:String, fields:Map<String,String>) {
         if(transactionBatch == null) throw "DataNode_T only works within a Transaction";
-        super(type, transactionBatch);
+        super(type, fields, transactionBatch);
     }
 
     override function remove(batch:EventBatch = null) {

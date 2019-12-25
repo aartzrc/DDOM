@@ -171,9 +171,9 @@ class DBProcessor extends Processor implements IProcessor {
             }
             return cache[type][id];
         }
-        var dn = new DataNode(t.type);
-        dn.fields = [ for(f in Reflect.fields(row)) f => Std.string(Reflect.field(row, f)) ];
-        if(t.idCol != "id") dn.fields.set("id", dn.fields[t.idCol]); // Make sure 'id' field is available
+        var fields = [ for(f in Reflect.fields(row)) f => Std.string(Reflect.field(row, f)) ];
+        if(t.idCol != "id") fields.set("id", fields[t.idCol]); // Make sure 'id' field is available
+        var dn = new DataNode(t.type, fields);
         return useCache ? checkCache(dn) : dn;
     }
 }

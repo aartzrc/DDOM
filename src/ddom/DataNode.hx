@@ -6,7 +6,7 @@ using ddom.LambdaExt;
 @:allow(ddom.DDOMInst, ddom.DDOM, ddom.Processor, ddom.SelectorListener)
 class DataNode {
     var type:String;
-    var fields:Map<String,String> = [];
+    var fields:Map<String,String>;
     var children:Array<DataNode> = [];
     var parents:Array<DataNode> = [];
 
@@ -14,8 +14,9 @@ class DataNode {
 
     var events:Array<{event:Event,time:Float}> = [];
     
-	function new(type:String, batch:EventBatch = null) {
+	function new(type:String, fields:Map<String,String>, batch:EventBatch = null) {
         this.type = type;
+        this.fields = fields;
         if(batch != null) batch.events.push(Created(this));
         else fire(Created(this));
     }

@@ -165,7 +165,7 @@ abstract DDOM(DDOMInst) from DDOMInst #if debug to DDOMInst #end {
     public function arrayRead(n:Int) return this.arrayRead(n);
 
     public static function create(type:String):DDOM {
-        var processor = new Processor([new DataNode(type)]);
+        var processor = new Processor([new DataNode(type, [])]);
         return new DDOMInst(processor, "");
     }
 }
