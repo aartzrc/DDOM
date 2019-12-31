@@ -23,10 +23,10 @@ DROP TABLE IF EXISTS `datanode`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
  SET character_set_client = utf8mb4 ;
 CREATE TABLE `datanode` (
-  `id` int(10) unsigned NOT NULL,
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `type` varchar(255) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -71,4 +71,4 @@ CREATE TABLE `parent_child` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2019-12-12  8:10:26
+-- Dump completed on 2019-12-31 11:07:19
