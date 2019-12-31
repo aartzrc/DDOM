@@ -129,15 +129,6 @@ class DDOMInst {
     public function select(selector:Selector = null):DDOM {
         return new DDOMInst(processor, this.selector.concat(selector));
     }
-
-    /**
-     * Extension method that provides access to DataNodes based on type
-     * @param ddom
-     * @param type 
-     */
-    public static function nodesOfType(ddom:DDOMInst, type:String) {
-        return ddom.nodes.filter((dn) -> dn.type == type);
-    }
 }
 
 @:allow(ddom.DDOMInst)
@@ -167,5 +158,14 @@ abstract DDOM(DDOMInst) from DDOMInst #if debug to DDOMInst #end {
     public static function create(type:String):DDOM {
         var processor = new Processor([new DataNode(type, [])]);
         return new DDOMInst(processor, "");
+    }
+
+    /**
+     * Extension method that provides access to DataNodes based on type
+     * @param ddom
+     * @param type 
+     */
+    public static function nodesOfType(ddom:DDOM, type:String) {
+        return cast(ddom, DDOMInst).nodes.filter((dn) -> dn.type == type);
     }
 }

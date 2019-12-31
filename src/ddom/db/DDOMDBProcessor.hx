@@ -24,7 +24,6 @@ class DDOMDBProcessor extends Processor implements IProcessor {
 	/**
 	 * Pass standard Haxe DB connection settings, see ddomdb.sql for a MySql starter database
 	 * @param params 
-	 * @param useCache 
 	 */
 	public function new(params : {
 		host : String,
@@ -44,6 +43,7 @@ class DDOMDBProcessor extends Processor implements IProcessor {
     }
 
     public function processEventBatch(batch:EventBatch) {
+        trace(batch);
         c.startTransaction();
         try {
             function handleEvents(events:Array<Event>) {
@@ -80,6 +80,8 @@ class DDOMDBProcessor extends Processor implements IProcessor {
         }
         c.commit();
         batch.events = [];
+        cache.clear();
+        selectGroupCache.clear();
     }
 
     public function select(selector:Selector = null):DDOM {
@@ -97,7 +99,7 @@ class DDOMDBProcessor extends Processor implements IProcessor {
     override function selectOfType(type:String, filters:Array<TokenFilter>):Array<DataNode> {
         //var t = Timer.stamp();
         var results:Array<DataNode> = [];
-        var sql = "SELECT id, type, name, val FROM datanode JOIN fields ON datanode.id = fields.datanode_id";
+        var sql = "SELECT id, type, name, val FROM datanode LEFT JOIN fields ON datanode.id = fields.datanode_id";
         if(type != "." && type != "*") // Check for get EVERYTHING - this should be blocked?
             sql += " WHERE type=" + c.quote(type);
         //trace(sql);
