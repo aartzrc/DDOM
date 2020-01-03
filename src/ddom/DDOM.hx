@@ -160,6 +160,12 @@ abstract DDOM(DDOMInst) from DDOMInst #if debug to DDOMInst #end {
         return new DDOMInst(processor, "");
     }
 
+    public static var empty(get,never):DDOM;
+    
+    static inline function get_empty():DDOM {
+        return new DDOMInst(new Processor([]), "");
+    }
+
     /**
      * Extension method that provides access to DataNodes based on type
      * @param ddom
