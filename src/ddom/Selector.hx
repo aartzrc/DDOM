@@ -6,7 +6,7 @@ using StringTools;
 @:forward(length)
 abstract Selector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<SelectorGroup> {
     @:from
-    static public function fromString(selector:String) return tokenize(selector);
+    static public function fromString(selector:String) return Tokenizer.tokenize(selector);
     @:to
     public function toString() return detokenize(this);
 
@@ -21,9 +21,10 @@ abstract Selector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<Selec
         :pos(x) get at position - eg: "cart > product:pos(0)" get the first product in the cart
         multiple 'filters' are possible per token - eg: user[firstname=joe]:order(lastname):pos(0) would get users with firstname of 'joe', order by lastname field, and get the first item
 
-        TODO: fix property selector [name=first name] is broken due to space being 'split'
+        TODO: fix property selector [name=first name] is broken due to space being 'split' - this is done via Tokenizer.tokenize
     */
-    static function tokenize(selector:String):Selector {
+    // this is the first try at tokenize, some issues with splitting string so it was switched to Tokenizer.tokenize - need to create some Unit Tests and speed comparisons
+    /*static function tokenize(selector:String):Selector {
         function processGroup(sel:String) {
             var tokens:Array<SelectorToken> = [];
 
@@ -124,7 +125,7 @@ abstract Selector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<Selec
             return tokens;
         }
         return selector.split(",").map((sel) -> processGroup(sel)).filter((sel) -> sel.length > 0);
-    }
+    }*/
 
     static function detokenize(selector:Selector):String {
         var groups:Array<SelectorGroup> = selector;

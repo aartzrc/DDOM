@@ -14,8 +14,7 @@ class Main {
         //childTests();
         //selectorTests();
 
-        // TODO: make sub type select work - eq: "customer,item".concat(".customer") should get all customer+item then limit to just customer
-        //tokenizerTests();
+        tokenizerTests();
 
         //selectorAppendTests();
 
@@ -27,7 +26,7 @@ class Main {
 
         //attachDetachTests();
 
-        ddomDBTests();
+        //ddomDBTests();
 
         //transactionTests(); // Transactions are beyond the scope of DDOM - each processor has it's own way to create a transaction so it became too complex
 	}
@@ -289,15 +288,19 @@ class Main {
     }
 
     static function tokenizerTests() {
+        var s:Selector = "customer[name=jon doe]";
+        trace(s);
+
+
         /*var selector:Selector = "session *:gt(2) > product[name=paper]";
         trace(selector);*/
         /*var s:Selector = "session#home-server:pos(0)";
         trace(s);*/
-        var s:Selector = "> session";
+        /*var s:Selector = "> session";
         s = s.concat("> user");
         trace(s);
         s = s.concat(".:pos(0)");
-        trace(s);
+        trace(s);*/
         //var selector:Selector = "session#2 > customer[lastname=artz][firstname!=andy]:orderby(firstname):pos(0)";
         //trace(selector);
         /*trace(DDOMSelectorProcessor.tokenize("session cart:gt(2)"));

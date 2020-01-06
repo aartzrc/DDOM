@@ -2,4 +2,5 @@
 -D analyzer-optimize
 -debug
 -main Main
+#-main ddom.Tokenizer
 -hl tests
