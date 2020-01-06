@@ -178,16 +178,14 @@ abstract Selector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<Selec
         if(this.length == 0) return selector; // Detect append on a 'root' selector
 
         // Append the passed selector groups to all groups to create a new 'chain'
-        // Convert to/from string to perform cleanup/append operations
-        var out:Array<String> = [];
-        var parentStrs:Array<String> = (this:Selector).toString().split(",");
-        var appendStrs:Array<String> = selector.toString().split(",");
-        for(parentStr in parentStrs) {
-            for(appendStr in appendStrs) {
-                out.push(parentStr + " " + appendStr);
+        var out:Array<SelectorGroup> = [];
+        for(parentGroup in this) {
+            for(childGroup in (selector:Array<SelectorGroup>)) {
+                out.push(parentGroup.concat(childGroup));
             }
         }
-        return out.join(",");
+        // Run through tokenizer to 'clean up'
+        return Tokenizer.tokenize((out:Selector).toString());
     }
 }
 

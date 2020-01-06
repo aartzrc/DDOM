@@ -213,6 +213,7 @@ class Tokenizer {
                             mode = PropFilter(i);
                         case " ".code:
                             filters.push(Id(selector.substring(start+1, i)));
+                            lastFilters = filters;
                             mode = Descendants(i);
                         case ",".code:
                             filters.push(Id(selector.substring(start+1, i)));
@@ -276,6 +277,37 @@ class Tokenizer {
         for(i in modeChanges)
             trace(i);
 #end
+        function cleanFilters(filters:Array<TokenFilter>) {
+            var prevPos:TokenFilter = null;
+            var prevId:TokenFilter = null;
+            for(f in filters.copy()) {
+                switch(f) {
+                    case Id(_):
+                        if(prevId != null) filters.remove(prevId);
+                        prevId = f;
+                    case Pos(_):
+                        if(prevPos != null) filters.remove(prevPos);
+                        prevPos = f;
+                    case _:
+                }
+            }
+        }
+
+        // Clean up/merge filters
+        for(group in out) {
+            for(token in group) {
+                switch(token) {
+                    case OfType(type, filters):
+                        cleanFilters(filters);
+                    case Children(type, filters):
+                        cleanFilters(filters);
+                    case Parents(type, filters):
+                        cleanFilters(filters);
+                    case Descendants(type, filters):
+                        cleanFilters(filters);
+                }
+            }
+        }
 
         return out;
     }

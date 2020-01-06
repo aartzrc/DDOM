@@ -6,6 +6,7 @@ class TokenizerTests {
 	static function main() {
         var tests:Array<SelectorTest> = [];
 
+        // Chain/append Pos filter
         var t1:SelectorTest = {
             sel:"customer[name=jon doe]",
             res:[[OfType("customer", [ValEq("name", "jon doe")])]]
@@ -26,6 +27,34 @@ class TokenizerTests {
             res:[[OfType("customer", [ValEq("name", "jon doe"), Pos(0)]), Children("item", [Pos(0)])]]
         }
         tests.push(t4);
+        
+        // Re-select via '.'
+        var t1:SelectorTest = {
+            sel:"USER#1",
+            res:[[OfType("USER", [Id("1")])]]
+        };
+        tests.push(t1);
+        var t2:SelectorTest = {
+            sel:t1.sel.concat("."),
+            res:[[OfType("USER", [Id("1")])]]
+        }
+        tests.push(t2);
+
+        // Concat with comma in field
+        var sel:Selector = "customer[name=jon, doe]";
+        var t1:SelectorTest = {
+            sel:sel.concat(".:pos(0)"),
+            res:[[OfType("customer", [ValEq("name", "jon, doe"), Pos(0)])]]
+        };
+        tests.push(t1);
+
+        // Clean redundant Pos filter
+        var sel:Selector = "customer[name=jon doe]:pos(0):orderby(name)";
+        var t1:SelectorTest = {
+            sel:sel.concat(".:pos(1)"),
+            res:[[OfType("customer", [ValEq("name", "jon doe"), OrderBy("name"), Pos(1)])]]
+        };
+        tests.push(t1);
 
         for(t in tests) {
             if(!isSame(t.sel, t.res)) {

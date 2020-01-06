@@ -130,7 +130,12 @@ class DDOMDBProcessor extends Processor implements IProcessor {
         sqlLog.push(sql);
         try {
             var result = c.request(sql);
-            for(row in result) results.push(toDataNode(row));
+            var resultMap:Map<String, DataNode> = [];
+            for(row in result) {
+                var dn = toDataNode(row);
+                resultMap.set(dn.getField("id"), dn);
+            }
+            results = resultMap.array();
         } catch (e:Dynamic) {
 #if debug
             trace(sql);
@@ -150,7 +155,12 @@ class DDOMDBProcessor extends Processor implements IProcessor {
         sqlLog.push(sql);
         try {
             var result = c.request(sql);
-            for(row in result) childNodes.push(toDataNode(row));
+            var resultMap:Map<String, DataNode> = [];
+            for(row in result) {
+                var dn = toDataNode(row);
+                resultMap.set(dn.getField("id"), dn);
+            }
+            childNodes = resultMap.array();
         } catch (e:Dynamic) {
 #if debug
             trace(sql);
@@ -169,7 +179,12 @@ class DDOMDBProcessor extends Processor implements IProcessor {
         sqlLog.push(sql);
         try {
             var result = c.request(sql);
-            for(row in result) parentNodes.push(toDataNode(row));
+            var resultMap:Map<String, DataNode> = [];
+            for(row in result) {
+                var dn = toDataNode(row);
+                resultMap.set(dn.getField("id"), dn);
+            }
+            parentNodes = resultMap.array();
         } catch (e:Dynamic) {
 #if debug
             trace(sql);

@@ -14,13 +14,13 @@ class Main {
         //childTests();
         //selectorTests();
 
-        //tokenizerTests();
+        tokenizerTests();
 
         //selectorAppendTests();
 
         //chainTests();
 
-        dbTests();
+        //dbTests();
 
         //castTests();
 
@@ -222,9 +222,13 @@ class Main {
 
         var dbConn = new DBProcessor({user:"bgp", pass:"bgp", host:"127.0.0.1", database:"proctrack"}, typeMap, true, true);
 
+        // This is all screwy now... multiple Pos filters??
+        // The main issue is related to filter append like '.:pos(0)' - maybe a new token that makes this easier to process?
+        // Only one filter per top level token should be allowed, for example customer:pos(0) .:pos(1) should turn into customer:pos(1)
+        // TODO: store Selector as string instead of array, only parse to array when needed! this reduces overhead, selectors are being tokenized every time!
         var customer_o = dbConn.select("customer")[0];
         trace(customer_o.toString());
-        var items = customer_o.children("item");
+        var items = customer_o.children("item")[0];
         trace(items.toString());
 
         //var items = dbConn.select("customer#60 > item, customer#61");
@@ -295,7 +299,6 @@ class Main {
     static function tokenizerTests() {
         var s:Selector = "customer[name=jon doe]";
         trace(s);
-
 
         /*var selector:Selector = "session *:gt(2) > product[name=paper]";
         trace(selector);*/
