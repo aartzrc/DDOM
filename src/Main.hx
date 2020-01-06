@@ -14,13 +14,13 @@ class Main {
         //childTests();
         //selectorTests();
 
-        tokenizerTests();
+        //tokenizerTests();
 
         //selectorAppendTests();
 
         //chainTests();
 
-        //dbTests();
+        dbTests();
 
         //castTests();
 
@@ -220,11 +220,16 @@ class Main {
             }
         ];
 
-        var dbConn = new DBProcessor({user:"bgp", pass:"bgp", host:"127.0.0.1", database:"proctrack"}, typeMap, false);
+        var dbConn = new DBProcessor({user:"bgp", pass:"bgp", host:"127.0.0.1", database:"proctrack"}, typeMap, true, true);
+
+        var customer_o = dbConn.select("customer")[0];
+        trace(customer_o.toString());
+        var items = customer_o.children("item");
+        trace(items.toString());
 
         //var items = dbConn.select("customer#60 > item, customer#61");
         //trace(items.select(".customer")); // This doesn't work yet
-        var retail = dbConn.select("customer[name=Retail]");
+        /*var retail = dbConn.select("customer[name=Retail]");
         var retailItems = retail.select("> item:orderby(cdate)");
         var last5 = retailItems.select(".:gt(" + (retailItems.size()-5) + ")");
         var last5history = last5.select("history");
@@ -233,18 +238,18 @@ class Main {
         }
 
         var lastHistory = retail.select("history:orderby(udate)");
-        for(i in 0 ... 5) trace(lastHistory[i]);
+        for(i in 0 ... 5) trace(lastHistory[i]);*/
         //var history = customers.select("history");
         //trace(history);
         
         /*for(c in customersDDOM) {
             trace(c.name);
         }*/
-        var items = dbConn.select("item");
+        /*var items = dbConn.select("item");
         trace(items.size());
         var customers = items.select("< *");
 
-        trace(customers.size());
+        trace(customers.size());*/
         /*for(c in customers) {
             var ddi:DDOMInst = c;
             trace(ddi.nodes[0].type + " : " + c.name);

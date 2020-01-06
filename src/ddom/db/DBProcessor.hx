@@ -20,6 +20,7 @@ class DBProcessor extends Processor implements IProcessor {
     var typeMap:Map<String, TypeMap> = [];
     var cache:Map<String, Map<String, DataNode>> = [];
     var useCache:Bool;
+    var showSql:Bool;
     var selectGroupCache:Map<String, Array<DataNode>> = [];
 
 	/**
@@ -35,7 +36,7 @@ class DBProcessor extends Processor implements IProcessor {
 		pass : String,
 		?socket : String,
 		database : String
-	}, typeMaps:Array<TypeMap> = null, useCache:Bool = true) {
+	}, typeMaps:Array<TypeMap> = null, useCache:Bool = true, showSql:Bool = false) {
         super([]);
         if(typeMaps != null) {
             for(t in typeMaps) {
@@ -43,6 +44,7 @@ class DBProcessor extends Processor implements IProcessor {
             }
         }
         this.useCache = useCache;
+        this.showSql = showSql;
         c = Mysql.connect(params);
     }
 
@@ -74,6 +76,7 @@ class DBProcessor extends Processor implements IProcessor {
             var sql:String = null;
             try {
                 sql = "select * from " + t.table;
+                if(showSql) trace(sql);
                 var result = c.request(sql);
                 for(row in result) results.push(toDataNode(t, row));
             } catch (e:Dynamic) {
@@ -118,7 +121,7 @@ class DBProcessor extends Processor implements IProcessor {
                     } else {
                         sql = "select * from " + childType.table + " where " + childMap.parentIdCol + " in (" + pids.join(",") + ")";
                     }
-
+                    if(showSql) trace(sql);
                     for(row in c.request(sql))
                         childNodes.pushUnique(toDataNode(childType, row));
                 }
@@ -150,6 +153,7 @@ class DBProcessor extends Processor implements IProcessor {
             }
             for(childMap => ids in idMap) {
                 var sql = "select * from " + parentTypeMap.table + " where " + parentTypeMap.idCol + " in (select " + childMap.parentIdCol + " from " + childMap.table + " where " + childMap.childIdCol + " in (" + ids.join(",") + "))";
+                if(showSql) trace(sql);
                 for(row in c.request(sql))
                     parentNodes.pushUnique(toDataNode(parentTypeMap, row));
             }

@@ -15,6 +15,7 @@ class Tokenizer {
         var mode:Mode = OfType(0);
         //var modeChanges:Array<{c:String, m:Mode}> = [];
         var group:Array<SelectorToken> = [];
+        var lastFilters:Array<TokenFilter>;
         var filters:Array<TokenFilter> = [];
 
         function next(i:Int, c:Int) {
@@ -50,6 +51,7 @@ class Tokenizer {
                         case " ".code:
                             group.push(OfType(selector.substring(start, i), filters));
                             mode = Descendants(i);
+                            lastFilters = filters;
                             filters = [];
                         case ",".code:
                             group.push(OfType(selector.substring(start, i), filters));
@@ -66,19 +68,40 @@ class Tokenizer {
                         case "\\".code:
                             mode = Escape(mode);
                         case "[".code:
-                            group.push(Descendants(selector.substring(start+1, i), filters));
+                            var t = selector.substring(start+1, i);
+                            if(t == "." && lastFilters != null) {
+                                filters = lastFilters;
+                            } else {
+                                group.push(Descendants(t, filters));
+                            }
                             mode = FieldFilter(i);
                         case ":".code:
-                            group.push(Descendants(selector.substring(start+1, i), filters));
+                            var t = selector.substring(start+1, i);
+                            if(t == "." && lastFilters != null) {
+                                filters = lastFilters;
+                            } else {
+                                group.push(Descendants(t, filters));
+                            }
                             mode = PropFilter(i);
                         case "#".code:
-                            group.push(Descendants(selector.substring(start+1, i), filters));
+                            var t = selector.substring(start+1, i);
+                            if(t == "." && lastFilters != null) {
+                                filters = lastFilters;
+                            } else {
+                                group.push(Descendants(t, filters));
+                            }
                             mode = IdFilter(i);
                         case " ".code:
                             mode = Descendants(i);
+                            lastFilters = filters;
                             filters = [];
                         case ",".code:
-                            group.push(Descendants(selector.substring(start+1, i), filters));
+                            var t = selector.substring(start+1, i);
+                            if(t == "." && lastFilters != null) {
+                                filters = lastFilters;
+                            } else {
+                                group.push(Descendants(t, filters));
+                            }
                             mode = NewGroup;
 
                     }
@@ -175,6 +198,7 @@ class Tokenizer {
                 case NewGroup:
                     out.push(group);
                     group = [];
+                    lastFilters = null;
                     filters = [];
                     mode = OfType(i);
                 case Escape(prevMode):
