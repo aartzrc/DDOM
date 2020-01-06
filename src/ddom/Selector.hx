@@ -6,7 +6,7 @@ using StringTools;
 @:forward(length)
 abstract Selector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<SelectorGroup> {
     @:from
-    static public function fromString(selector:String) return Tokenizer.tokenize(selector);
+    static public function fromString(selector:String):Selector return Tokenizer.tokenize(selector);
     @:to
     public function toString() return detokenize(this);
 

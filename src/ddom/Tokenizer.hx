@@ -3,17 +3,13 @@ package ddom;
 import ddom.Selector;
 
 class Tokenizer {
-	static function main() {
-        // Rebuild of Selector.tokenize
-        
-        // TODO: tests
-        trace(tokenize('customer[name=joe, doe]:pos(0) > session#2,customer[name=some guy],customer[name=mynameis\\]],* > user'));
-    }
-    
-    public static function tokenize(selector:String):Selector {
+	
+    public static function tokenize(selector:String):Array<SelectorGroup> {
         var out:Array<SelectorGroup> = [];
         var mode:Mode = OfType(0);
-        //var modeChanges:Array<{c:String, m:Mode}> = [];
+#if tokenizerdebug
+        var modeChanges:Array<{c:String, m:Mode}> = [];
+#end
         var group:Array<SelectorToken> = [];
         var lastFilters:Array<TokenFilter>;
         var filters:Array<TokenFilter> = [];
@@ -32,6 +28,8 @@ class Tokenizer {
                             mode = IdFilter(i);
                         case " ".code:
                             mode = Descendants(i);
+                            lastFilters = filters;
+                            filters = [];
                         case ",".code:
                             mode = NewGroup;
                     }
@@ -61,10 +59,16 @@ class Tokenizer {
                     switch(c) {
                         case ">".code:
                             mode = Children(i);
-                            filters = [];
+                            if(i-start > 1) {
+                                lastFilters = filters;
+                                filters = [];
+                            }
                         case "<".code:
                             mode = Parents(i);
-                            filters = [];
+                            if(i-start > 1) {
+                                lastFilters = filters;
+                                filters = [];
+                            }
                         case "\\".code:
                             mode = Escape(mode);
                         case "[".code:
@@ -110,18 +114,38 @@ class Tokenizer {
                         case "\\".code:
                             mode = Escape(mode);
                         case "[".code:
-                            group.push(Children(selector.substring(start+1, i), filters));
+                            var t = selector.substring(start+1, i);
+                            if(t == "." && lastFilters != null) {
+                                filters = lastFilters;
+                            } else {
+                                group.push(Children(t, filters));
+                            }
                             mode = FieldFilter(i);
                         case ":".code:
-                            group.push(Children(selector.substring(start+1, i), filters));
+                            var t = selector.substring(start+1, i);
+                            if(t == "." && lastFilters != null) {
+                                filters = lastFilters;
+                            } else {
+                                group.push(Children(t, filters));
+                            }
                             mode = PropFilter(i);
                         case "#".code:
-                            group.push(Children(selector.substring(start+1, i), filters));
+                            var t = selector.substring(start+1, i);
+                            if(t == "." && lastFilters != null) {
+                                filters = lastFilters;
+                            } else {
+                                group.push(Children(t, filters));
+                            }
                             mode = IdFilter(i);
                         case " ".code:
                             mode = Children(i);
                         case ",".code:
-                            group.push(Children(selector.substring(start+1, i), filters));
+                            var t = selector.substring(start+1, i);
+                            if(t == "." && lastFilters != null) {
+                                filters = lastFilters;
+                            } else {
+                                group.push(Children(t, filters));
+                            }
                             mode = NewGroup;
 
                     }
@@ -130,18 +154,38 @@ class Tokenizer {
                         case "\\".code:
                             mode = Escape(mode);
                         case "[".code:
-                            group.push(Parents(selector.substring(start+1, i), filters));
+                            var t = selector.substring(start+1, i);
+                            if(t == "." && lastFilters != null) {
+                                filters = lastFilters;
+                            } else {
+                                group.push(Parents(t, filters));
+                            }
                             mode = FieldFilter(i);
                         case ":".code:
-                            group.push(Parents(selector.substring(start+1, i), filters));
+                            var t = selector.substring(start+1, i);
+                            if(t == "." && lastFilters != null) {
+                                filters = lastFilters;
+                            } else {
+                                group.push(Parents(t, filters));
+                            }
                             mode = PropFilter(i);
                         case "#".code:
-                            group.push(Parents(selector.substring(start+1, i), filters));
+                            var t = selector.substring(start+1, i);
+                            if(t == "." && lastFilters != null) {
+                                filters = lastFilters;
+                            } else {
+                                group.push(Parents(t, filters));
+                            }
                             mode = IdFilter(i);
                         case " ".code:
                             mode = Parents(i);
                         case ",".code:
-                            group.push(Parents(selector.substring(start+1, i), filters));
+                            var t = selector.substring(start+1, i);
+                            if(t == "." && lastFilters != null) {
+                                filters = lastFilters;
+                            } else {
+                                group.push(Parents(t, filters));
+                            }
                             mode = NewGroup;
 
                     }
@@ -205,7 +249,9 @@ class Tokenizer {
                     // Ignore the next character and revert to previous mode
                     mode = prevMode;
             }
-            //modeChanges.push({c:selector.substr(i, 1), m:mode});
+#if tokenizerdebug
+            modeChanges.push({c:selector.substr(i, 1), m:mode});
+#end
         }
 
         for(i in 0 ... selector.length)
@@ -213,9 +259,11 @@ class Tokenizer {
 
         next(selector.length+1, ",".code);
         out.push(group);
-        
-        /*for(i in modeChanges)
-            trace(i);*/
+
+#if tokenizerdebug
+        for(i in modeChanges)
+            trace(i);
+#end
 
         return out;
     }

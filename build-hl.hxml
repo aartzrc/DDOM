@@ -1,6 +1,6 @@
 -cp src
 -D analyzer-optimize
 -debug
--main Main
+-main tests.TokenizerTests
 #-main ddom.Tokenizer
 -hl tests
