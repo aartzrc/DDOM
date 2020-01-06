@@ -16,6 +16,16 @@ class TokenizerTests {
             res:[[OfType("customer", [ValEq("name", "jon doe"), Pos(0)])]]
         }
         tests.push(t2);
+        var t3:SelectorTest = {
+            sel:t2.sel.concat(" > item"),
+            res:[[OfType("customer", [ValEq("name", "jon doe"), Pos(0)]), Children("item", [])]]
+        }
+        tests.push(t3);
+        var t4:SelectorTest = {
+            sel:t3.sel.concat(".:pos(0)"),
+            res:[[OfType("customer", [ValEq("name", "jon doe"), Pos(0)]), Children("item", [Pos(0)])]]
+        }
+        tests.push(t4);
 
         for(t in tests) {
             if(!isSame(t.sel, t.res)) {
