@@ -56,13 +56,31 @@ class TokenizerTests {
         };
         tests.push(t1);
 
+        // Short concat child
+        var sel:Selector = "customer";
+        var t1:SelectorTest = {
+            sel:sel.concat("> item"),
+            res:[[OfType("customer",[]),Children("item",[])]]
+        };
+        tests.push(t1);
+
+        // Direct concat child
+        var sel:Selector = "USER#72";
+        var t1:SelectorTest = {
+            sel:sel.concat("> item"),
+            res:[[OfType("USER",[Id("72")]),Children("item",[])]]
+        };
+        tests.push(t1);
+
+        var fails = 0;
         for(t in tests) {
             if(!isSame(t.sel, t.res)) {
                 trace("FAIL: " + t.sel + " != " + t.res);
+                fails++;
             }
         }
 
-        trace(tests.length + " tests run");
+        trace(tests.length + " tests run, " + fails + " fails");
     }
     
     static function isSame(sel:Selector, res:Array<SelectorGroup>) {

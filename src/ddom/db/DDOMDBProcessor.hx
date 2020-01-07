@@ -43,8 +43,8 @@ class DDOMDBProcessor extends Processor implements IProcessor {
         if(c != null) c.close();
     }
 
-    public function processEventBatch(batch:EventBatch) {
-        trace(batch);
+    public function processEventBatch(batch:EventBatch, clearCache:Bool = true) {
+        //trace(batch);
         c.startTransaction();
         try {
             function handleEvents(events:Array<Event>) {
@@ -105,8 +105,10 @@ class DDOMDBProcessor extends Processor implements IProcessor {
         }
         c.commit();
         batch.events = [];
-        cache.clear();
-        selectGroupCache.clear();
+        if(clearCache) {
+            cache.clear();
+            selectGroupCache.clear();
+        }
     }
 
     public function select(selector:Selector = null):DDOM {
@@ -149,7 +151,7 @@ class DDOMDBProcessor extends Processor implements IProcessor {
     override function selectChildren(parentNodes:Array<DataNode>, childType:String, filters:Array<TokenFilter>):Array<DataNode> {
         var childNodes:Array<DataNode> = [];
         var parentIds = parentNodes.map((n) -> n.getField("id"));
-        var sql = "SELECT id, type, name, val FROM datanode JOIN fields ON datanode.id = fields.datanode_id JOIN parent_child ON parent_child.child_id = datanode.id WHERE parent_child.parent_id IN (" + parentIds.join(",") + ")";
+        var sql = "SELECT id, type, name, val FROM datanode LEFT JOIN fields ON datanode.id = fields.datanode_id JOIN parent_child ON parent_child.child_id = datanode.id WHERE parent_child.parent_id IN (" + parentIds.join(",") + ")";
         if(childType != "." && childType != "*")
             sql += " AND type=" + c.quote(childType);
         sqlLog.push(sql);
@@ -173,7 +175,7 @@ class DDOMDBProcessor extends Processor implements IProcessor {
     override function selectParents(childNodes:Array<DataNode>, parentType:String, filters:Array<TokenFilter>):Array<DataNode> {
         var parentNodes:Array<DataNode> = [];
         var childIds = childNodes.map((n) -> n.getField("id"));
-        var sql = "SELECT id, type, name, val FROM datanode JOIN fields ON datanode.id = fields.datanode_id JOIN parent_child ON parent_child.parent_id = datanode.id WHERE parent_child.child_id IN (" + childIds.join(",") + ")";
+        var sql = "SELECT id, type, name, val FROM datanode LEFT JOIN fields ON datanode.id = fields.datanode_id JOIN parent_child ON parent_child.parent_id = datanode.id WHERE parent_child.child_id IN (" + childIds.join(",") + ")";
         if(parentType != "." && parentType != "*")
             sql += " AND type=" + c.quote(parentType);
         sqlLog.push(sql);

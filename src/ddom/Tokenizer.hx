@@ -13,6 +13,11 @@ class Tokenizer {
         var group:Array<SelectorToken> = [];
         var lastFilters:Array<TokenFilter>;
         var filters:Array<TokenFilter> = [];
+        
+        // Check for parent/child as first char and prepend space to fix logic
+        var firstCode = selector.charCodeAt(0);
+        if(firstCode == "<".code || firstCode == ">".code)
+            selector = " " + selector;
 
         function next(i:Int, c:Int) {
             switch(mode) {
