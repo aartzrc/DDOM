@@ -18,6 +18,8 @@ interface IProcessor {
  */
 @:allow(ddom.DDOM)
 class Processor implements IProcessor {
+    public var log:Array<String> = [];
+
     // Cache + listen/event callback system
     var cacheMap:Map<String, Array<DataNode>> = null;
     var listenerMap:Map<String, ListenerGroup> = null;
@@ -219,6 +221,8 @@ class Processor implements IProcessor {
     
     // use processFilter as a 'fallback' filter, it would be better to do this work during query generation
     function processFilter(nodes:Array<DataNode>, filters:Array<TokenFilter>):Array<DataNode> {
+        var startCount = nodes.length;
+        //log.push(Std.string(nodes));
         for(filter in filters) {
             switch(filter) {
                 case Id(id):
@@ -250,6 +254,7 @@ class Processor implements IProcessor {
                     });
             }
         }
+        log.push("processFilter: " + startCount + " nodes => " + filters + " => " + nodes.length);
         return nodes;
     }
 }

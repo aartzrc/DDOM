@@ -18,7 +18,6 @@ import sys.db.Mysql;
 @:access(ddom.DDOMInst, ddom.DataNode)
 class DDOMDBProcessor extends Processor implements IProcessor {
     var c:sys.db.Connection;
-    public var sqlLog:Array<String> = [];
     var cache:Map<String, Map<Int, DataNode>> = [];
     var selectGroupCache:Map<String, Array<DataNode>> = [];
 
@@ -54,46 +53,46 @@ class DDOMDBProcessor extends Processor implements IProcessor {
                             handleEvents(newEvents);
                         case Created(node):
                             var sql = "INSERT INTO datanode (type) VALUES (" + c.quote(node.type) + ")";
-                            sqlLog.push(sql);
+                            log.push(sql);
                             c.request(sql);
                             node.setField("id", Std.string(c.lastInsertId()));
                         case FieldSet(node, name, val):
                             if(name != "id") {
                                 if(val == null) {
                                     var sql = "DELETE FROM fields WHERE datanode_id=" + node.getField("id") + " AND name=" + c.quote(name);
-                                    sqlLog.push(sql);
+                                    log.push(sql);
                                     c.request(sql);
                                 } else {
                                     var sql = "INSERT INTO fields (datanode_id,name,val) VALUES (" + node.getField("id") + "," + c.quote(name) + "," + c.quote(val) + ") ON DUPLICATE KEY UPDATE val=" + c.quote(val);
-                                    sqlLog.push(sql);
+                                    log.push(sql);
                                     c.request(sql);
                                 }
                             }
                         case Removed(node):
                             var sql = "DELETE FROM parent_child WHERE parent_id=" + node.getField("id") + " OR child_id=" + node.getField("id");
-                            sqlLog.push(sql);
+                            log.push(sql);
                             c.request(sql);
                             var sql = "DELETE FROM fields WHERE datanode_id=" + node.getField("id");
-                            sqlLog.push(sql);
+                            log.push(sql);
                             c.request(sql);
                             var sql = "DELETE FROM datanode WHERE id=" + node.getField("id");
-                            sqlLog.push(sql);
+                            log.push(sql);
                             c.request(sql);
                         case ChildAdded(node, child):
                             var sql = "INSERT INTO parent_child (parent_id, child_id) VALUES (" + node.getField("id") + "," + child.getField("id") + ") ON DUPLICATE KEY UPDATE child_id=child_id";
-                            sqlLog.push(sql);
+                            log.push(sql);
                             c.request(sql);
                         case ParentAdded(node, parent):
                             var sql = "INSERT INTO parent_child (child_id, parent_id) VALUES (" + node.getField("id") + "," + parent.getField("id") + ") ON DUPLICATE KEY UPDATE child_id=child_id";
-                            sqlLog.push(sql);
+                            log.push(sql);
                             c.request(sql);
                         case ChildRemoved(node, child):
                             var sql = "DELETE FROM parent_child WHERE parent_id=" + node.getField("id") + " AND child_id=" + child.getField("id");
-                            sqlLog.push(sql);
+                            log.push(sql);
                             c.request(sql);
                         case ParentRemoved(node, parent):
                             var sql = "DELETE FROM parent_child WHERE parent_id=" + parent.getField("id") + " AND child_id=" + node.getField("id");
-                            sqlLog.push(sql);
+                            log.push(sql);
                             c.request(sql);
                     }
                 }
@@ -129,7 +128,7 @@ class DDOMDBProcessor extends Processor implements IProcessor {
         var sql = "SELECT id, type, name, val FROM datanode LEFT JOIN fields ON datanode.id = fields.datanode_id";
         if(type != "." && type != "*") // Check for get EVERYTHING - this should be blocked?
             sql += " WHERE type=" + c.quote(type);
-        sqlLog.push(sql);
+        log.push(sql);
         try {
             var result = c.request(sql);
             var resultMap:Map<String, DataNode> = [];
@@ -154,7 +153,7 @@ class DDOMDBProcessor extends Processor implements IProcessor {
         var sql = "SELECT id, type, name, val FROM datanode LEFT JOIN fields ON datanode.id = fields.datanode_id JOIN parent_child ON parent_child.child_id = datanode.id WHERE parent_child.parent_id IN (" + parentIds.join(",") + ")";
         if(childType != "." && childType != "*")
             sql += " AND type=" + c.quote(childType);
-        sqlLog.push(sql);
+        log.push(sql);
         try {
             var result = c.request(sql);
             var resultMap:Map<String, DataNode> = [];
@@ -178,7 +177,7 @@ class DDOMDBProcessor extends Processor implements IProcessor {
         var sql = "SELECT id, type, name, val FROM datanode LEFT JOIN fields ON datanode.id = fields.datanode_id JOIN parent_child ON parent_child.parent_id = datanode.id WHERE parent_child.child_id IN (" + childIds.join(",") + ")";
         if(parentType != "." && parentType != "*")
             sql += " AND type=" + c.quote(parentType);
-        sqlLog.push(sql);
+        log.push(sql);
         try {
             var result = c.request(sql);
             var resultMap:Map<String, DataNode> = [];
