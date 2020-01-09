@@ -20,7 +20,6 @@ class DBProcessor extends Processor implements IProcessor {
     var typeMap:Map<String, TypeMap> = [];
     var cache:Map<String, Map<String, DataNode>> = [];
     var useCache:Bool;
-    var showSql:Bool;
     var selectGroupCache:Map<String, Array<DataNode>> = [];
 
 	/**
@@ -36,7 +35,7 @@ class DBProcessor extends Processor implements IProcessor {
 		pass : String,
 		?socket : String,
 		database : String
-	}, typeMaps:Array<TypeMap> = null, useCache:Bool = true, showSql:Bool = false) {
+	}, typeMaps:Array<TypeMap> = null, useCache:Bool = true) {
         super([]);
         if(typeMaps != null) {
             for(t in typeMaps) {
@@ -44,7 +43,6 @@ class DBProcessor extends Processor implements IProcessor {
             }
         }
         this.useCache = useCache;
-        this.showSql = showSql;
         c = Mysql.connect(params);
     }
 
@@ -64,6 +62,25 @@ class DBProcessor extends Processor implements IProcessor {
         return selectGroupCache[sel];
     }
 
+    function filtersToSql(filters:Array<TokenFilter>) {
+        var sqlAnd:Array<String> = [];
+        var sqlOrderBy:String = null;
+        var sqlLimit:String = null;
+        var unhandledFilters:Array<TokenFilter> = [];
+        for(filter in filters) {
+            switch(filter) {
+                case Pos(pos):
+                    sqlLimit = 'LIMIT 1 OFFSET $pos';
+                case OrderBy(name):
+                    sqlOrderBy = 'ORDER BY ${c.quote(name)}';
+                case _:
+                    unhandledFilters.push(filter);
+            }
+        }
+
+        return {sql:sqlAnd, sqlOrderBy:sqlOrderBy, sqlLimit:sqlLimit, filters:unhandledFilters};
+    }
+
     override function selectOfType(type:String, filters:Array<TokenFilter>):Array<DataNode> {
         //var t = Timer.stamp();
         var results:Array<DataNode> = [];
@@ -76,7 +93,15 @@ class DBProcessor extends Processor implements IProcessor {
             var sql:String = null;
             try {
                 sql = "select * from " + t.table;
-                if(showSql) trace(sql);
+                var sql2 = filtersToSql(filters);
+                if(sql2.sql.length > 0)
+                    sql = sql + " WHERE " + sql2.sql.join(" AND ");
+                if(sql2.sqlOrderBy != null)
+                    sql = sql + " " + sql2.sqlOrderBy;
+                if(sql2.sqlLimit != null)
+                    sql = sql + " " + sql2.sqlLimit;
+                filters = sql2.filters;
+                log.push(sql);
                 var result = c.request(sql);
                 for(row in result) results.push(toDataNode(t, row));
             } catch (e:Dynamic) {
@@ -118,10 +143,18 @@ class DBProcessor extends Processor implements IProcessor {
                     var sql:String;
                     if(childMap.childIdCol != null) {
                         sql = "select * from " + childType.table + " where " + childType.idCol + " in (select " + childMap.childIdCol + " from " + childMap.table + " where " + childMap.parentIdCol + " in (" + pids.join(",") + "))";
+                        var sql2 = filtersToSql(filters);
+                        if(sql2.sql.length > 0)
+                            sql = sql + " AND " + sql2.sql.join(" AND ");
+                        if(sql2.sqlOrderBy != null)
+                            sql = sql + " " + sql2.sqlOrderBy;
+                        if(sql2.sqlLimit != null)
+                            sql = sql + " " + sql2.sqlLimit;
+                        filters = sql2.filters;
                     } else {
                         sql = "select * from " + childType.table + " where " + childMap.parentIdCol + " in (" + pids.join(",") + ")";
                     }
-                    if(showSql) trace(sql);
+                    log.push(sql);
                     for(row in c.request(sql))
                         childNodes.pushUnique(toDataNode(childType, row));
                 }
@@ -153,7 +186,7 @@ class DBProcessor extends Processor implements IProcessor {
             }
             for(childMap => ids in idMap) {
                 var sql = "select * from " + parentTypeMap.table + " where " + parentTypeMap.idCol + " in (select " + childMap.parentIdCol + " from " + childMap.table + " where " + childMap.childIdCol + " in (" + ids.join(",") + "))";
-                if(showSql) trace(sql);
+                log.push(sql);
                 for(row in c.request(sql))
                     parentNodes.pushUnique(toDataNode(parentTypeMap, row));
             }

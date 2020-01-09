@@ -27,7 +27,15 @@ class TokenizerTests {
             res:[[OfType("customer", [ValEq("name", "jon doe"), Pos(0)]), Children("item", [Pos(0)])]]
         }
         tests.push(t4);
-        
+
+        // Chain re-select
+        var t:Selector = "> TYPE1 > TYPE2 < TYPE3";
+        var t1:SelectorTest = {
+            sel:t.concat(".#1"),
+            res:[[OfType("customer", [ValEq("name", "jon doe"), Pos(0)]), Children("item", [Pos(0)])]]
+        }
+        tests.push(t1);
+
         // Re-select via '.'
         var t1:SelectorTest = {
             sel:"USER#1",

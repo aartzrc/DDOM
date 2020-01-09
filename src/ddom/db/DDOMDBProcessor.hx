@@ -122,12 +122,34 @@ class DDOMDBProcessor extends Processor implements IProcessor {
         return selectGroupCache[sel];
     }
 
+    function filtersToSql(filters:Array<TokenFilter>) {
+        var sqlAnd:Array<String> = [];
+        var unhandledFilters:Array<TokenFilter> = [];
+        for(filter in filters) {
+            switch(filter) {
+                case Id(id):
+                    sqlAnd.push('id = ${c.quote(id)}');
+                case ValEq(name, val):
+                    sqlAnd.push('id in (select datanode_id from fields where name = ${c.quote(name)} and val = ${c.quote(val)})');
+                case ValNE(name, val):
+                    sqlAnd.push('id not in (select datanode_id from fields where name = ${c.quote(name)} and val = ${c.quote(val)})');
+                case _:
+                    unhandledFilters.push(filter);
+            }
+        }
+
+        return {sql:sqlAnd, filters:unhandledFilters};
+    }
+
     override function selectOfType(type:String, filters:Array<TokenFilter>):Array<DataNode> {
         //var t = Timer.stamp();
         var results:Array<DataNode> = [];
         var sql = "SELECT id, type, name, val FROM datanode LEFT JOIN fields ON datanode.id = fields.datanode_id";
+        var sql2 = filtersToSql(filters);
         if(type != "." && type != "*") // Check for get EVERYTHING - this should be blocked?
-            sql += " WHERE type=" + c.quote(type);
+            sql2.sql.push('type=${c.quote(type)}');
+        if(sql2.sql.length > 0)
+            sql = sql + " WHERE " + sql2.sql.join(" AND ");
         log.push(sql);
         try {
             var result = c.request(sql);
@@ -144,15 +166,18 @@ class DDOMDBProcessor extends Processor implements IProcessor {
 #end
         }
         //trace(Timer.stamp() - t);
-        return processFilter(results, filters);
+        return processFilter(results, sql2.filters);
     }
 
     override function selectChildren(parentNodes:Array<DataNode>, childType:String, filters:Array<TokenFilter>):Array<DataNode> {
         var childNodes:Array<DataNode> = [];
         var parentIds = parentNodes.map((n) -> n.getField("id"));
         var sql = "SELECT id, type, name, val FROM datanode LEFT JOIN fields ON datanode.id = fields.datanode_id JOIN parent_child ON parent_child.child_id = datanode.id WHERE parent_child.parent_id IN (" + parentIds.join(",") + ")";
+        var sql2 = filtersToSql(filters);
         if(childType != "." && childType != "*")
-            sql += " AND type=" + c.quote(childType);
+            sql2.sql.push('type=${c.quote(childType)}');
+        if(sql2.sql.length > 0)
+            sql = sql + " AND " + sql2.sql.join(" AND ");
         log.push(sql);
         try {
             var result = c.request(sql);
@@ -168,15 +193,18 @@ class DDOMDBProcessor extends Processor implements IProcessor {
             trace(e);
 #end
         }
-        return processFilter(childNodes, filters);
+        return processFilter(childNodes, sql2.filters);
     }
 
     override function selectParents(childNodes:Array<DataNode>, parentType:String, filters:Array<TokenFilter>):Array<DataNode> {
         var parentNodes:Array<DataNode> = [];
         var childIds = childNodes.map((n) -> n.getField("id"));
         var sql = "SELECT id, type, name, val FROM datanode LEFT JOIN fields ON datanode.id = fields.datanode_id JOIN parent_child ON parent_child.parent_id = datanode.id WHERE parent_child.child_id IN (" + childIds.join(",") + ")";
+        var sql2 = filtersToSql(filters);
         if(parentType != "." && parentType != "*")
-            sql += " AND type=" + c.quote(parentType);
+            sql2.sql.push('type=${c.quote(parentType)}');
+        if(sql2.sql.length > 0)
+            sql = sql + " AND " + sql2.sql.join(" AND ");
         log.push(sql);
         try {
             var result = c.request(sql);
@@ -192,7 +220,7 @@ class DDOMDBProcessor extends Processor implements IProcessor {
             trace(e);
 #end
         }
-        return processFilter(parentNodes, filters);
+        return processFilter(parentNodes, sql2.filters);
     }
 
     function toDataNode(row:Dynamic):DataNode {

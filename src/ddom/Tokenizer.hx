@@ -148,6 +148,7 @@ class Tokenizer {
                             } else {
                                 mode = Descendants(i);
                                 lastFilters = filters;
+                                filters = [];
                                 group.push(Children(selector.substring(start+1, i), filters));
                             }
                         case ",".code:
@@ -194,6 +195,7 @@ class Tokenizer {
                             } else {
                                 mode = Descendants(i);
                                 lastFilters = filters;
+                                filters = [];
                                 group.push(Parents(selector.substring(start+1, i), filters));
                             }
                         case ",".code:

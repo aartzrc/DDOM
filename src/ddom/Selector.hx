@@ -184,6 +184,7 @@ abstract Selector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<Selec
                 out.push(parentGroup.concat(childGroup));
             }
         }
+        trace(out);
         // Run through tokenizer to 'clean up'
         return Tokenizer.tokenize((out:Selector).toString());
     }
