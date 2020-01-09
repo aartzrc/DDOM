@@ -32,7 +32,7 @@ class TokenizerTests {
         var t:Selector = "> TYPE1 > TYPE2 < TYPE3";
         var t1:SelectorTest = {
             sel:t.concat(".#1"),
-            res:[[OfType("customer", [ValEq("name", "jon doe"), Pos(0)]), Children("item", [Pos(0)])]]
+            res:[[Children("TYPE1", []), Children("TYPE2", []), Parents("TYPE3", [Id("1")])]]
         }
         tests.push(t1);
 
