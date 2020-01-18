@@ -146,8 +146,10 @@ abstract Selector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<Selec
                         filterDetokenized += "[" + name + "=" + val + "]";
                     case ValNE(name, val):
                         filterDetokenized += "[" + name + "!=" + val + "]";
-                    case OrderBy(name):
-                        filterDetokenized += ":orderby(" + name + ")";
+                    case OrderAsc(name):
+                        filterDetokenized += ":orderasc(" + name + ")";
+                    case OrderDesc(name):
+                        filterDetokenized += ":orderdesc(" + name + ")";
                 }
             }
             return filterDetokenized;
@@ -206,5 +208,6 @@ enum TokenFilter {
     Lt(pos:Int);
     ValEq(name:String,val:String);
     ValNE(name:String,val:String);
-    OrderBy(name:String);
+    OrderAsc(name:String);
+    OrderDesc(name:String);
 }

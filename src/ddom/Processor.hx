@@ -244,12 +244,20 @@ class Processor implements IProcessor {
                     nodes = nodes.filter((n) -> n.fields[name] == val);
                 case ValNE(name, val):
                     nodes = nodes.filter((n) -> n.fields[name] != val);
-                case OrderBy(name):
+                case OrderAsc(name):
                     nodes.sort((n1,n2) -> {
                         var a = n1.fields.exists(name) ? n1.fields[name] : "";
                         var b = n2.fields.exists(name) ? n2.fields[name] : "";
                         if (a < b) return -1;
                         if (a > b) return 1;
+                        return 0;
+                    });
+                case OrderDesc(name):
+                    nodes.sort((n1,n2) -> {
+                        var a = n1.fields.exists(name) ? n1.fields[name] : "";
+                        var b = n2.fields.exists(name) ? n2.fields[name] : "";
+                        if (a < b) return 1;
+                        if (a > b) return -1;
                         return 0;
                     });
             }

@@ -229,8 +229,10 @@ class Tokenizer {
                                         filters.push(Gt(Std.parseInt(val)));
                                     case "lt":
                                         filters.push(Lt(Std.parseInt(val)));
-                                    case "orderby":
-                                        filters.push(OrderBy(val));
+                                    case "orderasc":
+                                        filters.push(OrderAsc(val));
+                                    case "orderdesc":
+                                        filters.push(OrderDesc(val));
                                 }
                             }
                             mode = FilterScan;

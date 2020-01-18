@@ -57,10 +57,10 @@ class TokenizerTests {
         tests.push(t1);
 
         // Clean redundant Pos filter
-        var sel:Selector = "customer[name=jon doe]:pos(0):orderby(name)";
+        var sel:Selector = "customer[name=jon doe]:pos(0):orderasc(name)";
         var t1:SelectorTest = {
             sel:sel.concat(".:pos(1)"),
-            res:[[OfType("customer", [ValEq("name", "jon doe"), OrderBy("name"), Pos(1)])]]
+            res:[[OfType("customer", [ValEq("name", "jon doe"), OrderAsc("name"), Pos(1)])]]
         };
         tests.push(t1);
 
@@ -187,9 +187,16 @@ class TokenizerTests {
                         case _:
                             return false;
                     }
-                case OrderBy(v_a):
+                case OrderAsc(v_a):
                     switch(b[i]) {
-                        case OrderBy(v_b):
+                        case OrderAsc(v_b):
+                            if(v_a != v_b) return false;
+                        case _:
+                            return false;
+                    }
+                case OrderDesc(v_a):
+                    switch(b[i]) {
+                        case OrderDesc(v_b):
                             if(v_a != v_b) return false;
                         case _:
                             return false;

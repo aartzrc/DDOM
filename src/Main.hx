@@ -234,14 +234,14 @@ class Main {
         //var items = dbConn.select("customer#60 > item, customer#61");
         //trace(items.select(".customer")); // This doesn't work yet
         /*var retail = dbConn.select("customer[name=Retail]");
-        var retailItems = retail.select("> item:orderby(cdate)");
+        var retailItems = retail.select("> item:orderasc(cdate)");
         var last5 = retailItems.select(".:gt(" + (retailItems.size()-5) + ")");
         var last5history = last5.select("history");
         for(i in last5history) {
             trace(i);
         }
 
-        var lastHistory = retail.select("history:orderby(udate)");
+        var lastHistory = retail.select("history:orderasc(udate)");
         for(i in 0 ... 5) trace(lastHistory[i]);*/
         //var history = customers.select("history");
         //trace(history);
@@ -309,7 +309,7 @@ class Main {
         trace(s);
         s = s.concat(".:pos(0)");
         trace(s);*/
-        //var selector:Selector = "session#2 > customer[lastname=artz][firstname!=andy]:orderby(firstname):pos(0)";
+        //var selector:Selector = "session#2 > customer[lastname=artz][firstname!=andy]:orderasc(firstname):pos(0)";
         //trace(selector);
         /*trace(DDOMSelectorProcessor.tokenize("session cart:gt(2)"));
         trace(DDOMSelectorProcessor.tokenize("*"));

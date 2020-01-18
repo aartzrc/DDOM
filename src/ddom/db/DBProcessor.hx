@@ -71,8 +71,10 @@ class DBProcessor extends Processor implements IProcessor {
             switch(filter) {
                 case Pos(pos):
                     sqlLimit = 'LIMIT 1 OFFSET $pos';
-                case OrderBy(name):
-                    sqlOrderBy = 'ORDER BY ${c.quote(name)}';
+                case OrderAsc(name):
+                    sqlOrderBy = 'ORDER BY ${c.quote(name)} ASC';
+                case OrderDesc(name):
+                    sqlOrderBy = 'ORDER BY ${c.quote(name)} DESC';
                 case _:
                     unhandledFilters.push(filter);
             }
