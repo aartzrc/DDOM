@@ -37,7 +37,7 @@ class SelectorListener {
     static function attachToProcessor(l:Listener) {
         var handler = handleChange.bind(l);
         var ddi = cast(l.ddom, DDOMInst);
-        l.listenDetachFuncs.push(ddi.processor.listen(ddi.selector, handler));
+        l.listenDetachFuncs += ddi.processor.listen(ddi.selector, handler);
     }
 }
 

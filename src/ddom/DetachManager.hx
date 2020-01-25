@@ -2,10 +2,23 @@ package ddom;
 
 using Lambda;
 
-class DetachManager {
-    #if debug
+@:forward(detach, keys, set)
+abstract DetachManager(DetachBatch) from DetachBatch to DetachBatch {
+    public function new() {
+        return new DetachBatch();
+    }
+
+    @:op(A += B)
+    public static function pushDetachFunc(lhs:DetachManager, rhs:()->Void):DetachManager {
+        (lhs:DetachBatch).push(rhs);
+        return lhs;
+    }
+}
+
+class DetachBatch {
+#if debug
     public static var attachTotal(get,null):Int;
-    static var managers:Array<DetachManager> = [];
+    static var managers:Array<DetachBatch> = [];
 
     static function get_attachTotal() {
         var total = 0;

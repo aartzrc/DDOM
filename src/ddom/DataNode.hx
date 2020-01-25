@@ -11,18 +11,15 @@ class DataNode {
     var parents:Array<DataNode> = [];
 
     var listeners:Array<(Event)->Void> = [];
-
-    var events:Array<{event:Event,time:Float}> = [];
     
 	function new(type:String, fields:Map<String,String>, batch:EventBatch = null) {
         this.type = type;
         if(batch != null) {
             batch.events.push(Created(this));
-            for(f => v in fields) setField(f, v, batch);
         } else {
             fire(Created(this));
-            for(f => v in fields) setField(f, v);
         }
+        for(f => v in fields) setField(f, v, batch);
     }
 
     function remove(batch:EventBatch = null) {
@@ -108,7 +105,6 @@ class DataNode {
     }
     
     function fire(event:Event) {
-        events.push({event:event,time:Date.now().getTime()});
         for(l in listeners) l(event);
     }
 
@@ -153,7 +149,6 @@ class DataNode {
         children = [];
         parents = [];
         listeners = [];
-        events = [];
     }
 }
 
