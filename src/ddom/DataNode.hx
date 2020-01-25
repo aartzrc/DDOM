@@ -34,8 +34,8 @@ class DataNode {
         if(fireBatch) batch.fire();
     }
 
-    function setField(name:String, val:String, batch:EventBatch = null) {
-        if(fields[name] != val) {
+    function setField(name:String, val:String, batch:EventBatch = null, force:Bool = false) {
+        if(force || fields[name] != val) {
             fields[name] = val;
             if(batch != null) {
                 batch = buildBatch(batch);
@@ -50,8 +50,8 @@ class DataNode {
         return fields[name];
     }
 
-    function addChild(child:DataNode, batch:EventBatch = null) {
-        if(children.pushUnique(child)) {
+    function addChild(child:DataNode, batch:EventBatch = null, force:Bool = false) {
+        if(force || children.pushUnique(child)) {
             var fireBatch = batch == null;
             batch = buildBatch(batch);
             batch.events.push(ChildAdded(this, child));
@@ -62,8 +62,8 @@ class DataNode {
         return false;
     }
 
-    function removeChild(child:DataNode, batch:EventBatch = null) {
-        if(children.remove(child)) {
+    function removeChild(child:DataNode, batch:EventBatch = null, force:Bool = false) {
+        if(force || children.remove(child)) {
             var fireBatch = batch == null;
             batch = buildBatch(batch);
             batch.events.push(ChildRemoved(this, child));
@@ -74,8 +74,8 @@ class DataNode {
         return false;
     }
 
-    function addParent(parent:DataNode, batch:EventBatch = null) {
-        if(parents.pushUnique(parent)) {
+    function addParent(parent:DataNode, batch:EventBatch = null, force:Bool = false) {
+        if(force || parents.pushUnique(parent)) {
             var fireBatch = batch == null;
             batch = buildBatch(batch);
             batch.events.push(ParentAdded(this, parent));
@@ -86,8 +86,8 @@ class DataNode {
         return false;
     }
 
-    function removeParent(parent:DataNode, batch:EventBatch = null) {
-        if(parents.remove(parent)) {
+    function removeParent(parent:DataNode, batch:EventBatch = null, force:Bool = false) {
+        if(force || parents.remove(parent)) {
             var fireBatch = batch == null;
             batch = buildBatch(batch);
             batch.events.push(ParentRemoved(this, parent));
@@ -98,11 +98,12 @@ class DataNode {
         return false;
     }
 
-    function on(callback:(Event)->Void) {
+    public function on(callback:(Event)->Void) {
         listeners.pushUnique(callback);
+        return off.bind(callback);
     }
 
-    function off(callback:(Event)->Void) {
+    public function off(callback:(Event)->Void) {
         listeners.remove(callback);
     }
     
@@ -137,6 +138,22 @@ class DataNode {
                 for(l in listeners) l(batch);
             } 
         };
+    }
+
+    @:keep
+    function hxSerialize(s:haxe.Serializer) {
+        s.serialize(type);
+        s.serialize(fields);
+    }
+
+    @:keep
+    function hxUnserialize(u:haxe.Unserializer) {
+        type = u.unserialize();
+        fields = u.unserialize();
+        children = [];
+        parents = [];
+        listeners = [];
+        events = [];
     }
 }
 

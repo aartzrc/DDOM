@@ -14,7 +14,7 @@ class SelectorListener {
         var l:Listener = {
             ddom:ddom,
             callback:callback,
-            listenDetachFuncs:[]
+            listenDetachFuncs:new DetachManager()
         }
         attachToProcessor(l);
 
@@ -25,8 +25,8 @@ class SelectorListener {
     }
 
     static function detach(l:Listener) {
-        for(f in l.listenDetachFuncs) f();
-        l.listenDetachFuncs = [];
+        l.listenDetachFuncs.detach();
+        l.listenDetachFuncs = null;
     }
 
     static function handleChange(l:Listener) {
@@ -44,5 +44,5 @@ class SelectorListener {
 typedef Listener = {
     ddom:DDOM,
     callback:(DDOM)->Void,
-    listenDetachFuncs:Array<()->Void>
+    listenDetachFuncs:DetachManager
 }

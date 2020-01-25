@@ -56,6 +56,7 @@ class DDOMDBProcessor extends Processor implements IProcessor {
                             log.push(sql);
                             c.request(sql);
                             node.setField("id", Std.string(c.lastInsertId()));
+                            log.push(node.getField("id"));
                         case FieldSet(node, name, val):
                             if(name != "id") {
                                 if(val == null) {
@@ -268,32 +269,32 @@ class DataNode_T extends DataNode {
         super.remove(transactionBatch);
     }
 
-    override function setField(name:String, val:String, batch:EventBatch = null) {
+    override function setField(name:String, val:String, batch:EventBatch = null, force:Bool = false) {
         if(transactionBatch == null) throw "DataNode_T only works within a Transaction";
-        super.setField(name, val, transactionBatch);
+        super.setField(name, val, transactionBatch, force);
     }
 
-    override function addChild(child:DataNode, batch:EventBatch = null) {
+    override function addChild(child:DataNode, batch:EventBatch = null, force:Bool = false) {
         if(transactionBatch == null) throw "DataNode_T only works within a Transaction";
         if(!Std.is(child, DataNode_T)) throw "child must be a DataNode_T";
-        return super.addChild(child, transactionBatch);
+        return super.addChild(child, transactionBatch, force);
     }
 
-    override function removeChild(child:DataNode, batch:EventBatch = null) {
+    override function removeChild(child:DataNode, batch:EventBatch = null, force:Bool = false) {
         if(transactionBatch == null) throw "DataNode_T only works within a Transaction";
         if(!Std.is(child, DataNode_T)) throw "child must be a DataNode_T";
-        return super.removeChild(child, transactionBatch);
+        return super.removeChild(child, transactionBatch, force);
     }
 
-    override function addParent(parent:DataNode, batch:EventBatch = null) {
+    override function addParent(parent:DataNode, batch:EventBatch = null, force:Bool = false) {
         if(transactionBatch == null) throw "DataNode_T only works within a Transaction";
         if(!Std.is(parent, DataNode_T)) throw "parent must be a DataNode_T";
-        return super.addParent(parent, transactionBatch);
+        return super.addParent(parent, transactionBatch, force);
     }
 
-    override function removeParent(parent:DataNode, batch:EventBatch = null) {
+    override function removeParent(parent:DataNode, batch:EventBatch = null, force:Bool = false) {
         if(transactionBatch == null) throw "DataNode_T only works within a Transaction";
         if(!Std.is(parent, DataNode_T)) throw "parent must be a DataNode_T";
-        return super.removeParent(parent, transactionBatch);
+        return super.removeParent(parent, transactionBatch, force);
     }
 }
