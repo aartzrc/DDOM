@@ -1,6 +1,7 @@
 package ddom;
 
 using ddom.LambdaExt;
+using Lambda;
 
 import ddom.Selector;
 import ddom.DDOM;
@@ -244,6 +245,8 @@ class Processor implements IProcessor {
                     nodes = nodes.filter((n) -> n.fields[name] == val);
                 case ValNE(name, val):
                     nodes = nodes.filter((n) -> n.fields[name] != val);
+                case WordEq(name, val):
+                    nodes = nodes.filter((n) -> n.fields[name].split(" ").exists((f) -> f == val));
                 case OrderAsc(name):
                     nodes.sort((n1,n2) -> {
                         var a = n1.fields.exists(name) ? n1.fields[name] : "";

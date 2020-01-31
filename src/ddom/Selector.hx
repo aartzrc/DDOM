@@ -146,6 +146,8 @@ abstract Selector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<Selec
                         filterDetokenized += "[" + name + "=" + val + "]";
                     case ValNE(name, val):
                         filterDetokenized += "[" + name + "!=" + val + "]";
+                    case WordEq(name, val):
+                        filterDetokenized += "[" + name + "~=" + val + "]";
                     case OrderAsc(name):
                         filterDetokenized += ":orderasc(" + name + ")";
                     case OrderDesc(name):
@@ -207,6 +209,7 @@ enum TokenFilter {
     Lt(pos:Int);
     ValEq(name:String,val:String);
     ValNE(name:String,val:String);
+    WordEq(name:String,val:String);
     OrderAsc(name:String);
     OrderDesc(name:String);
 }

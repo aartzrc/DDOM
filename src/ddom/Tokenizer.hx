@@ -208,8 +208,13 @@ class Tokenizer {
                             mode = Escape(mode);
                         case "]".code:
                             var str = selector.substring(start+1, i);
-                            var eqPos = str.indexOf("=");
-                            if(eqPos > 0) filters.push(ValEq(str.substr(0, eqPos), str.substr(eqPos+1)));
+                            var wordEqPos = str.indexOf("~=");
+                            if(wordEqPos > 0) {
+                                filters.push(WordEq(str.substr(0, wordEqPos), str.substr(wordEqPos+2)));
+                            } else {
+                                var eqPos = str.indexOf("=");
+                                if(eqPos > 0) filters.push(ValEq(str.substr(0, eqPos), str.substr(eqPos+1)));
+                            }
                             mode = FilterScan;
                     }
                 case PropFilter(start):
