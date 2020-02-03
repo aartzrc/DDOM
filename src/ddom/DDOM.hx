@@ -84,6 +84,15 @@ class DDOMInst {
         return nodes.length;
     }
 
+    public inline function fields() {
+        if(nodes.length == 0) return [];
+        return [ for(k in nodes[0].fields.keys()) k ];
+    }
+
+    public inline function types() {
+        return nodes.map((n) -> n.type);
+    }
+
     /**
      * Updates all nodes in this DDOM with the name.value
      * @param name 
@@ -146,7 +155,7 @@ class DDOMIterator {
     }
 }
 
-@:forward(iterator, append, children, parents, size, remove, select, toString)
+@:forward(iterator, append, children, parents, size, fields, types, remove, select, toString)
 abstract DDOM(DDOMInst) from DDOMInst #if debug to DDOMInst #end {
     @:op(a.b)
     public function fieldWrite(name:String, value:String) this.fieldWrite(name, value);

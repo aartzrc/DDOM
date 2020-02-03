@@ -2,8 +2,6 @@ package tests;
 
 import haxe.iterators.StringIterator;
 import ddom.DDOM;
-import ddom.DataNode;
-import ddom.Selector;
 import ddom.html.HtmlProcessor;
 import sys.io.File;
 using StringTools;
@@ -19,12 +17,10 @@ class HtmlProcessorTests {
         lines.push('class $className {');
 
         var h = new HtmlProcessor(File.getContent("./src/tests/blog-page.htm"));
-        var header = h.select("html header[class~=blog-header]");
-        trace(header);
 
         lines.push('static function header() {');
 
-        lines = lines.concat(toDOMFunc(header));
+        lines = lines.concat(h.toDOMFuncs("html div[class~=card]:pos(0)"));
 
         lines.push('}');
         lines.push('}');
@@ -41,28 +37,6 @@ class HtmlProcessorTests {
             for(c in new StringIterator(l)) if(c == '{'.code) tabs++;
             lines[i] = l;
         }
-        return lines;
-    }
-
-    @:access(ddom.DDOMInst, ddom.DataNode)
-    static function toDOMFunc(ddom:DDOMInst) {
-        var lines:Array<String> = [];
-        var eNames:Map<String, Int> = [];
-
-        function toF(n:DataNode, pName:String = null) {
-            if(!eNames.exists(n.type)) eNames.set(n.type, 0);
-            eNames[n.type]++;
-            var name = '${n.type}_${eNames[n.type]}';
-            lines.push('var $name = document.createElement("${n.type}");');
-            if(pName != null)
-                lines.push('$pName.appendChild($name);');
-            if(n.fields.exists("class"))
-                lines.push('$name.className = "${n.fields["class"]}";');
-            for(c in n.children) toF(c, name);
-        }
-
-        for(n in ddom.nodes) toF(n);
-
         return lines;
     }
 }

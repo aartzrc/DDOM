@@ -146,4 +146,10 @@ class LambdaExt {
         }
         return false;
     }
+
+    public static function isNullOrWhitespace(s:String) {
+        if(s == null) return true;
+        if(StringTools.trim(s).length == 0) return true;
+        return false;
+    }
 }
