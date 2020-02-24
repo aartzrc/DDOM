@@ -245,8 +245,10 @@ class Processor implements IProcessor {
                     nodes = nodes.filter((n) -> n.fields[name] == val);
                 case ValNE(name, val):
                     nodes = nodes.filter((n) -> n.fields[name] != val);
-                case WordEq(name, val):
+                case ContainsWord(name, val):
                     nodes = nodes.filter((n) -> n.fields[name].split(" ").exists((f) -> f == val));
+                case StartsWith(name, val):
+                    nodes = nodes.filter((n) -> n.fields[name].indexOf(val) == 0);
                 case OrderAsc(name):
                     nodes.sort((n1,n2) -> {
                         var a = n1.fields.exists(name) ? n1.fields[name] : "";
