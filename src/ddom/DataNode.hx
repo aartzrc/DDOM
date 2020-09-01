@@ -1,6 +1,6 @@
 package ddom;
 
-using ddom.LambdaExt;
+using LambdaExt;
 
 // This is the actual data item, DDOM wraps this
 @:allow(ddom.DDOMInst, ddom.DDOM, ddom.Processor, ddom.SelectorListener)

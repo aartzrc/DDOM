@@ -1,6 +1,6 @@
 package ddom;
 
-using ddom.LambdaExt;
+using LambdaExt;
 using Lambda;
 
 import ddom.Selector;

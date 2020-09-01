@@ -4,7 +4,6 @@ import ddom.DataNode.Event;
 import ddom.DataNode.EventBatch;
 import haxe.Timer;
 using Lambda;
-using ddom.LambdaExt;
 
 import ddom.DDOM;
 import ddom.Selector;

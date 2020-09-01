@@ -5,7 +5,7 @@ using Lambda;
 @:forward(detach, keys, set)
 abstract DetachManager(DetachBatch) from DetachBatch to DetachBatch {
     public function new() {
-        return new DetachBatch();
+        this = new DetachBatch();
     }
 
     @:op(A += B)
@@ -41,9 +41,9 @@ class DetachBatch {
     public var length(get, never):Int;
 
     public function new() {
-    #if debug
-        helpers.push(this);
-    #end
+#if debug
+        managers.push(this);
+#end
     }
 
     public inline function push(fnc:()->Void) {
