@@ -1,5 +1,11 @@
 package examples;
 
+import ddom.db.DDOMDBProcessor;
+using ddom.SelectorListener;
+using ddom.DDOM;
+import ddom.DataNode;
+
+@:access(ddom.DataNode)
 class DBTest {
     public static function main() {
         var db = new ddom.db.DBProcessor({user:"ddom", pass:"ddom", host:"127.0.0.1", database:"proctrack"}, 
@@ -48,5 +54,18 @@ class DBTest {
         trace(mythAll.desc); // If no results, this will be null but not throw exception
 
         trace(db.log); // View queries and filters during processing
+
+        // DB Processor does not always have all data available in memory, so the listener system does not work yet (in-memory DDOM works)
+        mythCustomers.attach((mythChanges) -> {
+            trace(mythChanges);
+        }, false);
+        mythCustomers.name = "newly mythic";
+
+        // Create an EventBatch (transaction) and perform a database change
+        var editBatch = DataNode.createBatch();
+        var mythCustomer = mythCustomers.nodesOfType("customer")[0];
+        mythCustomer.setField("name", "mythically renamed", editBatch);
+        trace(editBatch); // Change event is stored, ready to be committed
+        // DBProcessor is not ready to handle commits, see DDOMDBProcessor.processEventBatch for implementation example
     }
 }

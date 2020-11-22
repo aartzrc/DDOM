@@ -96,3 +96,10 @@ trace(mythAll) => {*[name*=Myth]} = [{type:customer,id:121 => name:Mythic}]
 trace(mythAll.desc) => null
 trace(db.log) => [query: select * from customer WHERE `name` like '%myth%',query: select * from item where id in (select id from item where customer_id in ('121')),query: select * from customer WHERE `id`='121',query: select * from item_history WHERE `name` like '%Myth%',query: select * from item WHERE `name` like '%Myth%',query: select * from customer WHERE `name` like '%Myth%',processFilter- start: 1 nodes, filters: [Contains(name,Myth)], result count: 1,query: select * from item_history WHERE `desc` like '%myth%',query: select * from item WHERE `desc` like '%myth%',query: select * from customer WHERE `desc` like '%myth%']
 ```
+
+### Selector examples
+
+`customer#1234` - get customer with id 1234  
+`customer#1234 > cart:pos(0) > cartitems` - get cartitems from the first cart for customer 1234  
+`customer#1234 cartitems` - get all cartitems for customer 1234
+.. much more to document - see `TokenizerTests` and `Selector`  

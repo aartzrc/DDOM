@@ -12,7 +12,7 @@ import ddom.Processor;
 import sys.db.Mysql;
 
 /**
- * A 'catch-all' processor, throw any DataNodes at it and it can handle any selector
+ * A 'catch-all' processor, throw any DataNodes at it and it can handle any selector - this uses a special database structure (see ddomdb.sql)
  */
 @:access(ddom.DDOMInst, ddom.DataNode)
 class DDOMDBProcessor extends Processor implements IProcessor {

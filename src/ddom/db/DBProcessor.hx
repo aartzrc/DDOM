@@ -11,7 +11,7 @@ import ddom.Processor;
 import sys.db.Mysql;
 
 /**
- * A typical database processor, each table has a 'type' of data and fields. Parent-child relationships are provided via typeMaps.
+ * A typical database processor for an existing database, each table has a 'type' of data and fields. Parent-child relationships are provided via typeMaps.
  * Does not handle insert/update, only selecting is currently supported
  */
 @:access(ddom.DDOMInst, ddom.DataNode)
