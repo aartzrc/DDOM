@@ -20,112 +20,7 @@ abstract Selector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<Selec
         ~ TODO: get siblings - eg: "user ~ employee" will get all employees that are data-siblings of users
         :pos(x) get at position - eg: "cart > product:pos(0)" get the first product in the cart
         multiple 'filters' are possible per token - eg: user[firstname=joe]:order(lastname):pos(0) would get users with firstname of 'joe', order by lastname field, and get the first item
-
-        TODO: fix property selector [name=first name] is broken due to space being 'split' - this is done via Tokenizer.tokenize
     */
-    // this is the first try at tokenize, some issues with splitting string so it was switched to Tokenizer.tokenize - need to create some Unit Tests and speed comparisons
-    /*static function tokenize(selector:String):Selector {
-        function processGroup(sel:String) {
-            var tokens:Array<SelectorToken> = [];
-
-            function multiSplit(str:String, delimiters:Array<String>) {
-                var result:Array<String> = [];
-                var splitPos:Array<Int> = [];
-                for(i => c in str) if(delimiters.indexOf(String.fromCharCode(c)) != -1) splitPos.push(i);
-                var prevPos = 0;
-                for(nextPos in splitPos) {
-                    result.push(str.substring(prevPos, nextPos));
-                    prevPos = nextPos;
-                }
-                result.push(str.substring(prevPos));
-                return result;
-            }
-            function splitType(sel:String) {
-                var filters = multiSplit(sel, ["#", "[", ":"]);
-                var type = filters.shift();
-                if(type == null || type.length == 0) type = "*";
-
-                return {type:type,filters:filters};
-            }
-            function processFilters(filters:Array<String>) {
-                var tokenFilters:Array<TokenFilter> = [];
-                for(filter in filters) {
-                    switch(filter.charAt(0)) {
-                        case ":": // query selector
-                            var q = filter.substr(1);
-                            var m = [ "pos", "gt", "lt", "orderby" ].find((t) -> q.indexOf(t) == 0);
-                            var v = q.substr(m.length+1);
-                            switch(m) {
-                                case "pos":
-                                    tokenFilters.push(Pos(Std.parseInt(v)));
-                                case "gt":
-                                    tokenFilters.push(Gt(Std.parseInt(v)));
-                                case "lt":
-                                    tokenFilters.push(Lt(Std.parseInt(v)));
-                                case "orderby":
-                                    tokenFilters.push(OrderBy(v.substr(0, v.length-1)));
-                            }
-                        case "[": // attribute/field selector
-                            var q = filter.substr(1, filter.length-2);
-                            var m = [ "!=", "=" ].find((t) -> q.indexOf(t) != -1);
-                            var p = q.split(m);
-                            switch(m) {
-                                case "!=":
-                                    tokenFilters.push(ValNE(p[0], p[1]));
-                                case "=":
-                                    tokenFilters.push(ValEq(p[0], p[1]));
-                            }
-                        case "#": // id selector
-                            tokenFilters.push(Id(filter.substr(1)));
-                    }
-                }
-
-                return tokenFilters;
-            }
-
-            var tokenChunks = multiSplit(sel, [">","<"," "]).map((s) -> s.trim()).filter((s) -> s.length>0);
-
-            var lastFilters:Array<TokenFilter> = null;
-            while(tokenChunks.length > 0) {
-                var t = tokenChunks.shift();    
-                switch(t) {
-                    case ">": // direct children selector
-                        // get child type, the next token
-                        var type = splitType(tokenChunks.shift());
-                        if(type.type == ".") type.type = "*"; // 'append' selector not available, switch to 'all' selector
-                        lastFilters = processFilters(type.filters);
-                        tokens.push(Children(type.type, lastFilters));
-                    case "<": // parent selector
-                        // get parent type
-                        var type = splitType(tokenChunks.shift());
-                        if(type.type == ".") type.type = "*"; // 'append' selector not available, switch to 'all' selector
-                        lastFilters = processFilters(type.filters);
-                        tokens.push(Parents(type.type, lastFilters));
-                    case _: // Default to type selection
-                        var type = splitType(t);
-                        var filters = processFilters(type.filters);
-                        if(type.type == ".") { // Append to last filters
-                            if(lastFilters == null) {
-                                lastFilters = filters;
-                                tokens.push(OfType(type.type, lastFilters));
-                            } else {
-                                for(f in filters) lastFilters.push(f);
-                            }
-                        } else {
-                            if(tokens.length == 0) { // First token in chain, assume a 'child' selection
-                                lastFilters = filters;
-                                tokens.push(OfType(type.type, lastFilters));
-                            } else { // Not parent or child selector, fall back to descendants filter
-                                lastFilters = filters;
-                                tokens.push(Descendants(type.type, lastFilters));
-                            }
-                        }
-                    }
-            }
-            return tokens;
-        }
-        return selector.split(",").map((sel) -> processGroup(sel)).filter((sel) -> sel.length > 0);
-    }*/
 
     static function detokenize(selector:Selector):String {
         var groups:Array<SelectorGroup> = selector;
@@ -150,6 +45,8 @@ abstract Selector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<Selec
                         filterDetokenized += "[" + name + "~=" + val + "]";
                     case StartsWith(name, val):
                         filterDetokenized += "[" + name + "^=" + val + "]";
+                    case Contains(name, val):
+                        filterDetokenized += "[" + name + "*=" + val + "]";
                     case OrderAsc(name):
                         filterDetokenized += ":orderasc(" + name + ")";
                     case OrderDesc(name):
@@ -213,6 +110,7 @@ enum TokenFilter {
     ValNE(name:String,val:String);
     ContainsWord(name:String,val:String);
     StartsWith(name:String,val:String);
+    Contains(name:String, val:String);
     OrderAsc(name:String);
     OrderDesc(name:String);
 }

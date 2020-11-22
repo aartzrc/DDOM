@@ -11,6 +11,8 @@ import ddom.db.DDOMDBProcessor;
 @:access(ddom.DDOMInst,ddom.DataNode, ddom.db.DataNode_T)
 class Main {
 	static function main() {
+        // Other tests to implement - stub code
+
         //basicTests();
         //childTests();
         //selectorTests();

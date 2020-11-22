@@ -1,5 +1,5 @@
 -lib LambdaExt
 -cp src
 -D analyzer-optimize
--main Main
--js ddom.js
+-main examples.DBTest
+-hl db-example.hl

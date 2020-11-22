@@ -1,72 +1,98 @@
 # Data Document Object Model (DDOM)  
 
-Basic map of data to DOM-style syntax for basic read/write operations. All data is stored as `Any` type, but can be flagged as a specific class and throw exceptions on cast. All endpoints can be 'observable'. All operations return a DDOM instance (this is similar to how JQuery works), field access is forwarded through the DDOM instance.  
+DDOM uses selectors to access data in an agnostic way. It is similar to DOM/CSS/JQuery selectors, but has some unique aspects due to how data can be managed and the potentially circular nature of data references.  
 
-DOM operations:  
-static getById(id:String)  
-static getByType(type:String)  
-static create(type:String)  
-append(node:DDOM)  
-remove(node:DDOM)  
-delete()  
+DDOM also allows for data event listeners and update transactions which allow for asynchronous client-server communication and data 'event-based' updates.  
 
-most other operations become combinations of these basic calls
+The general concept of DDOM is a `DDOM` instance which is an anonymous set of data. It can contain nothing, or a wide range of data types and fields. A `DDOM` will never be null, and all operations on it will not fail or throw exceptions.  
 
-it looks like field access can be overridden: @:op(a.b) - https://haxe.org/manual/types-abstract-operator-overloading.html
+Usage examples:  
 
-11/26/2019:  
-coming along well, things to build out:  
-DDOM to typedef (or graphql), and have the typedefs provide code completion and type safety  
-An async client side updater that can call to a server  
-A server sync reader that can pull from a standard database  
-Allow multiple filters per token?  
-Quick way to generated unit tests for to/from string tokenization, iterate over all enums combinations and verify the go to/from string properly  
+Access an existing database:  
 
-12/1/2019:
-mostly stable, and DB access is working (although very slow, but just needs to be reworked/optimized)
-things to figure out:
-type safety via cast, it looks like casting away from DDOM breaks field read/write so an abstract on top of DDOM then a typedef cast? yikes...
-async client to server system - extension methods attach/detach that use a base `Processor` system that responds with cached data if available and notifies a server about the attached `Selector`. The server can then respond with updates and the attached callbacks will be fired. The server needs to be smart enough to determine which selectors have real data updates, then the client just pushes them along? attached endpoint would receive new DDOMs.  
-all `DataNodes` should track their changes (events) so they can be reviewed as a transaction and sent to a data source as an update.
+Given a relational database structure such as:
 
-12/7/2019:
-Create a 'SelectorListener' class that takes a DDOM and uses the selector+processor to return any node list changes.
-Field changes are ignored (unless they effect the node list in some way). A 'FieldListener' would work the same but attach to all DataNodes in the DDOM.
-'SelectorListener' would need to listen to ALL data nodes in the pool (and add/remove listeners when parents/children are changed), and re-run all selectors.
-It would be best to make it so IProcessors and Selectors can be added/removed, so it becomes a reusable instance.
-Ended up with a static extension that stores everything needed within a typedef
+```sql
+CREATE TABLE `customer` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(64) COLLATE utf8_unicode_ci NOT NULL,
+  PRIMARY KEY (`id`)
+);
 
-Options for client to server polling:
-A) Have the client register selectors with the server. Each poll cycle the server would check for updates and respond.
-B) Have the client re-send selectors to the server, so the client maintains the attach/detach list. When the server responds with an update, the client could choose to adjust the selector to provide only more recent data
+CREATE TABLE `item` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `customer_id` int(10) unsigned NOT NULL,
+  `orderitem` varchar(255) COLLATE utf8_unicode_ci NOT NULL,
+  `desc` text COLLATE utf8_unicode_ci NOT NULL,
+  PRIMARY KEY (`id`)
+);
 
-I think option B for now. Items come back from the server, the selector gets adjusted to be like [id>_x_] so only new results are returned from the server after that.
-How would option B handle an item being deleted? Maybe the server could have an event log that could be selected against. To avoid having to add to 'old' systems, the client would need to occassionally refresh the original selector.
-Example:
-1. Customer page selected, create DOM
-2. Start listening to any customers added to a cache instance: cache.select("> customer").attach(...)
-3. Get a customer list from the server: "> customer" - this should be a central polling loop that detects the attach?
-4. Response contains ALL customers, put them in the cache (update will fire to attached endpoint, which can update display) - TODO: add a 'transaction' system to avoid redundant events
-5. Next poll cycle, request from the server: "> customer[id>1234]"
-6. Server probably contains no new results, but any new results can be appended, which fires to endpoint again
-7. After a few poll cycles, refresh the whole customer list to catch any deleted items
-8. Customer page closed, detach from selector, polling system drops the selector
+CREATE TABLE `item_history` (
+  `item_id` int(10) unsigned NOT NULL,
+  `status_id` int(10) unsigned NOT NULL,
+  `udate` bigint(20) unsigned NOT NULL
+);
+```
 
-12/10/2019:
-Basic client-server system built, client keeps track of 'attached' selectors and polls for updates.
-New issues related to this:
-How to modify a client DataNode and send to server? All DataNodes on client should be 'listened' to and updates sent to server. Server can reply with sync data/etc.
-TODO: create a 'catch all' style database that can store anything a selector/update can throw at it
-DataNodes would need to be stored a bit differently to help optimize selector lookups
-id, type, fields (serialized Map<String,String>)
-parent/child assoc table
-store ALL changes to each DataNode to allow history data - need a 'user' table to flag who did what? or just store all events as children of the DataNode, and events can point to a user 'child'
-essentially 'history' data doesn't need to be its own system - it should be part of the application logic instead of a dedicated system. just push it into the data tables and hope the database can handle it!
-it should be impossible to fully delete a data node once it is in the datbase. rather than 'delete' it would simply be 'detached' from all parents.
-as an example, if a customer was created and attached to the 'customers' node and then removed, they could still be found in the 'all customers' listing. so this will take some tricks to keep data isolated. maybe a 'removedCustomers' parent and a 'liveCustomers' parent that locks down what is visible.
+Use DDOM to access the data:  
 
-switch 'id' field to an int value to improve lookups. use id+type as the PK. when a client creates a new datanode and attaches to a node that is part of the source cache, it should be sent to the server and receive an id back.
+```haxe
+var db = new ddom.db.DBProcessor({user:"db_user", pass:"db_pass", host:"db_host", database:"db_db"}, 
+    [
+        {
+            type:"customer",
+            table:"customer",
+            idCol:"id",
+            children: [{
+                type:"item",
+                table:"item",
+                parentIdCol:"customer_id",
+                childIdCol: "id"
+            }]
+        },
+        {
+            type:"item",
+            table:"item",
+            idCol:"id",
+            children: [{
+                type:"history",
+                table:"item_history",
+                parentIdCol:"item_id"
+            }]
+        },
+        {
+            type:"history",
+            table:"item_history"
+        }
+    ]);
 
-12/11/2019:
-a 'transaction' type system is needed to create/change nodes and save to the database
-this is essentially an EventBatch, and 'fire' would commit the transaction
+    // Get a DDOM instance associated with a selector string - this does not actually run a query!
+    var mythCustomers = db.select('customer[name*=myth]'); // Find a customer by name
+    var mythItems = mythCustomers.select(' > item'); // Get all items for the customer (chaining selector)
+    trace(mythItems); // Trace out query results, this runs the query and iterates over output
+    trace(mythItems.size()); // 'length' can be a property of the result so DDOM has a size() function used to determine length/count of results
+    for(c in mythCustomers) trace(c); // Iterate over result set
+
+    var idCustomer = db.select('customer#${mythCustomers.id}'); // Use the first result 'id' value as a new selector
+    trace(idCustomer);
+
+    var mythAll = db.select('*[name*=Myth]'); // Search ALL tables - this will iterate over all tables defined and run the query
+    trace(mythAll);
+
+    var mythAll = db.select('*[desc*=myth]'); // Search ALL tables, special MySql keyword used 'desc' but it is escaped during query
+    trace(mythAll.desc); // If no results, this will be null but not throw exception
+
+    trace(db.log); // View queries and filters during processing
+
+```
+
+Output from this code will look like:
+```
+trace(mythItems) => {customer[name*=myth] > item} = [{type:item,id:32911 => udate:1561407989,customer_id:121,desc:mythic part}
+trace(mythItems.size()) => 1
+for(c in mythCustomers) => {customer[name*=myth]:pos(0)} = [{type:customer,id:121 => name:Mythic}]
+trace(idCustomer) => {customer#121} = [{type:customer,id:121 => name:Mythic}]
+trace(mythAll) => {*[name*=Myth]} = [{type:customer,id:121 => name:Mythic}]
+trace(mythAll.desc) => null
+trace(db.log) => [query: select * from customer WHERE `name` like '%myth%',query: select * from item where id in (select id from item where customer_id in ('121')),query: select * from customer WHERE `id`='121',query: select * from item_history WHERE `name` like '%Myth%',query: select * from item WHERE `name` like '%Myth%',query: select * from customer WHERE `name` like '%Myth%',processFilter- start: 1 nodes, filters: [Contains(name,Myth)], result count: 1,query: select * from item_history WHERE `desc` like '%myth%',query: select * from item WHERE `desc` like '%myth%',query: select * from customer WHERE `desc` like '%myth%']
+```

@@ -210,13 +210,19 @@ class Tokenizer {
                             var str = selector.substring(start+1, i);
                             var wordEqPos = str.indexOf("~=");
                             var startsWithPos = str.indexOf("^=");
+                            var containsPos = str.indexOf("*=");
+                            var eqPos = str.indexOf("=");
+                            var nePos = str.indexOf("!=");
                             if(wordEqPos > 0) {
                                 filters.push(ContainsWord(str.substr(0, wordEqPos), str.substr(wordEqPos+2)));
                             } else if(startsWithPos > 0) {
                                 filters.push(StartsWith(str.substr(0, startsWithPos), str.substr(startsWithPos+2)));
-                            } else {
-                                var eqPos = str.indexOf("=");
-                                if(eqPos > 0) filters.push(ValEq(str.substr(0, eqPos), str.substr(eqPos+1)));
+                            } else if(containsPos > 0) {
+                                filters.push(Contains(str.substr(0, containsPos), str.substr(containsPos+2)));
+                            } else if(eqPos > 0) {
+                                filters.push(ValEq(str.substr(0, eqPos), str.substr(eqPos+1)));
+                            } else if(nePos > 0) {
+                                filters.push(ValNE(str.substr(0, nePos), str.substr(nePos+1)));
                             }
                             mode = FilterScan;
                     }

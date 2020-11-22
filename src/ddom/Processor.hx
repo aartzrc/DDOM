@@ -249,6 +249,8 @@ class Processor implements IProcessor {
                     nodes = nodes.filter((n) -> n.fields[name].split(" ").exists((f) -> f == val));
                 case StartsWith(name, val):
                     nodes = nodes.filter((n) -> n.fields[name].indexOf(val) == 0);
+                case Contains(name, val):
+                    nodes = nodes.filter((n) -> n.fields[name].indexOf(val) != -1);
                 case OrderAsc(name):
                     nodes.sort((n1,n2) -> {
                         var a = n1.fields.exists(name) ? n1.fields[name] : "";
@@ -267,7 +269,7 @@ class Processor implements IProcessor {
                     });
             }
         }
-        log.push("processFilter: " + startCount + " nodes => " + filters + " => " + nodes.length);
+        log.push("processFilter- start: " + startCount + " nodes, filters: " + filters + ", result count: " + nodes.length);
         return nodes;
     }
 }

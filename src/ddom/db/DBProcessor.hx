@@ -2,7 +2,7 @@ package ddom.db;
 
 import haxe.Timer;
 using Lambda;
-using ddom.LambdaExt;
+using LambdaExt;
 
 import ddom.DDOM;
 import ddom.Selector;
@@ -62,7 +62,7 @@ class DBProcessor extends Processor implements IProcessor {
         return selectGroupCache[sel];
     }
 
-    function filtersToSql(filters:Array<TokenFilter>) {
+    function filtersToSql(type:String, filters:Array<TokenFilter>) {
         var sqlAnd:Array<String> = [];
         var sqlOrderBy:String = null;
         var sqlLimit:String = null;
@@ -75,10 +75,22 @@ class DBProcessor extends Processor implements IProcessor {
                     sqlOrderBy = 'ORDER BY ${c.quote(name)} ASC';
                 case OrderDesc(name):
                     sqlOrderBy = 'ORDER BY ${c.quote(name)} DESC';
+                case ValEq(name, val):
+                    sqlAnd.push("`" + name + "`='" + c.escape(val) + "'");
+                case Id(id):
+                    var curMap = typeMap[type];
+                    if(curMap != null && curMap.idCol != null)
+                        sqlAnd.push("`" + curMap.idCol + "`='" + c.escape(id) + "'");
+                case StartsWith(name, val):
+                    sqlAnd.push("`" + name + "` like '" + c.escape(val) + "%'");
+                case Contains(name, val):
+                    sqlAnd.push("`" + name + "` like '%" + c.escape(val) + "%'");
                 case _:
                     unhandledFilters.push(filter);
             }
         }
+
+        if(unhandledFilters.length > 0) trace(unhandledFilters);
 
         return {sql:sqlAnd, sqlOrderBy:sqlOrderBy, sqlLimit:sqlLimit, filters:unhandledFilters};
     }
@@ -95,7 +107,7 @@ class DBProcessor extends Processor implements IProcessor {
             var sql:String = null;
             try {
                 sql = "select * from " + t.table;
-                var sql2 = filtersToSql(filters);
+                var sql2 = filtersToSql(type, filters);
                 if(sql2.sql.length > 0)
                     sql = sql + " WHERE " + sql2.sql.join(" AND ");
                 if(sql2.sqlOrderBy != null)
@@ -103,7 +115,8 @@ class DBProcessor extends Processor implements IProcessor {
                 if(sql2.sqlLimit != null)
                     sql = sql + " " + sql2.sqlLimit;
                 filters = sql2.filters;
-                log.push(sql);
+                log.push("query: " + sql);
+                //trace(sql);
                 var result = c.request(sql);
                 for(row in result) results.push(toDataNode(t, row));
             } catch (e:Dynamic) {
@@ -114,7 +127,7 @@ class DBProcessor extends Processor implements IProcessor {
             }
         }
         //trace(Timer.stamp() - t);
-        return processFilter(results, filters);
+        return filters.length > 0 && results.length > 0 ? processFilter(results, filters) : results;
     }
 
     override function selectChildren(parentNodes:Array<DataNode>, childType:String, filters:Array<TokenFilter>):Array<DataNode> {
@@ -145,7 +158,7 @@ class DBProcessor extends Processor implements IProcessor {
                     var sql:String;
                     if(childMap.childIdCol != null) {
                         sql = "select * from " + childType.table + " where " + childType.idCol + " in (select " + childMap.childIdCol + " from " + childMap.table + " where " + childMap.parentIdCol + " in (" + pids.join(",") + "))";
-                        var sql2 = filtersToSql(filters);
+                        var sql2 = filtersToSql(ct, filters);
                         if(sql2.sql.length > 0)
                             sql = sql + " AND " + sql2.sql.join(" AND ");
                         if(sql2.sqlOrderBy != null)
@@ -156,14 +169,15 @@ class DBProcessor extends Processor implements IProcessor {
                     } else {
                         sql = "select * from " + childType.table + " where " + childMap.parentIdCol + " in (" + pids.join(",") + ")";
                     }
-                    log.push(sql);
+                    log.push("query: " + sql);
+                    //trace(sql);
                     for(row in c.request(sql))
                         childNodes.pushUnique(toDataNode(childType, row));
                 }
             }
         }
         //trace("children: " + (Timer.stamp() - t));
-        return processFilter(childNodes, filters);
+        return filters.length > 0 && childNodes.length > 0 ? processFilter(childNodes, filters) : childNodes;
     }
 
     override function selectParents(childNodes:Array<DataNode>, parentType:String, filters:Array<TokenFilter>):Array<DataNode> {
@@ -188,14 +202,15 @@ class DBProcessor extends Processor implements IProcessor {
             }
             for(childMap => ids in idMap) {
                 var sql = "select * from " + parentTypeMap.table + " where " + parentTypeMap.idCol + " in (select " + childMap.parentIdCol + " from " + childMap.table + " where " + childMap.childIdCol + " in (" + ids.join(",") + "))";
-                log.push(sql);
+                log.push("query: " + sql);
+                //trace(sql);
                 for(row in c.request(sql))
                     parentNodes.pushUnique(toDataNode(parentTypeMap, row));
             }
         }
         //trace("parents: " + (Timer.stamp() - t));
 
-        return processFilter(parentNodes, filters);
+        return filters.length > 0 && parentNodes.length > 0 ? processFilter(parentNodes, filters) : parentNodes;
     }
 
     function toDataNode(t:TypeMap, row:Dynamic):DataNode {

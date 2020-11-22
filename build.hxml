@@ -1,5 +1,0 @@
--lib LambdaExt
--cp src
--D analyzer-optimize
--main FieldAccessTest
---interp

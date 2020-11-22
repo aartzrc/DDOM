@@ -4,5 +4,4 @@
 -debug
 #-D tokenizerdebug
 -main tests.TokenizerTests
-#-main ddom.Tokenizer
--hl tests
+--interp

@@ -3,7 +3,7 @@ package ddom.html;
 import htmlparser.HtmlNodeElement;
 import haxe.Timer;
 using Lambda;
-using ddom.LambdaExt;
+using LambdaExt;
 using StringTools;
 
 import ddom.DDOM;

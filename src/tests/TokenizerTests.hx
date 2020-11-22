@@ -28,6 +28,18 @@ class TokenizerTests {
         }
         tests.push(t4);
 
+        // Multiple properties
+        tests.push({
+            sel:"customer[firstname=jon][lastname*=doe]",
+            res:[[OfType("customer", [ValEq("firstname", "jon"), Contains("lastname", "doe")])]]
+        });
+
+        // All types with 'contains'
+        tests.push({
+            sel:"*[name*=myth]",
+            res:[[OfType("*", [Contains("name", "myth")])]]
+        });
+
         // Chain re-select
         var t:Selector = "> TYPE1 > TYPE2 < TYPE3";
         var t1:SelectorTest = {
@@ -83,7 +95,8 @@ class TokenizerTests {
         var fails = 0;
         for(t in tests) {
             if(!isSame(t.sel, t.res)) {
-                trace("FAIL: " + t.sel + " != " + t.res);
+                var sel:Array<SelectorGroup> = t.sel;
+                trace('FAIL: "${t.sel}" $sel != ${t.res}');
                 fails++;
             }
         }
@@ -198,6 +211,27 @@ class TokenizerTests {
                     switch(b[i]) {
                         case OrderDesc(v_b):
                             if(v_a != v_b) return false;
+                        case _:
+                            return false;
+                    }
+                case ContainsWord(n_a, v_a):
+                    switch(b[i]) {
+                        case ContainsWord(n_b, v_b):
+                            if(n_a != n_b || v_a != v_b) return false;
+                        case _:
+                            return false;
+                    }
+                case StartsWith(n_a, v_a):
+                    switch(b[i]) {
+                        case StartsWith(n_b, v_b):
+                            if(n_a != n_b || v_a != v_b) return false;
+                        case _:
+                            return false;
+                    }
+                case Contains(n_a, v_a):
+                    switch(b[i]) {
+                        case Contains(n_b, v_b):
+                            if(n_a != n_b || v_a != v_b) return false;
                         case _:
                             return false;
                     }

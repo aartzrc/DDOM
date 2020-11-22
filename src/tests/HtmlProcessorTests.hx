@@ -20,12 +20,15 @@ class HtmlProcessorTests {
 
         lines.push('static function header() {');
 
-        lines = lines.concat(h.toDOMFuncs("html div[class~=card]:pos(0)"));
+        lines = lines.concat(h.toDOMFuncs("html div[class~=card]:pos(0)").lines);
 
         lines.push('}');
         lines.push('}');
 
-        File.saveContent('$className.hx', formatLines(lines).join("\n"));
+        var output = formatLines(lines).join("\n");
+        trace(output);
+
+        File.saveContent('$className.hx', output);
     }
 
     static function formatLines(lines:Array<String>) {
