@@ -213,7 +213,7 @@ class Processor implements IProcessor {
     function getDescendants(nodes:Array<DataNode>, type:String, found:Array<DataNode>, searched:Array<DataNode>):Array<DataNode> {
         for(n in nodes) {
             if(searched.pushUnique(n)) {
-                if(n.type == type) found.pushUnique(n);
+                if(type == "*" || type == "." || type == "" || n.type == type) found.pushUnique(n);
                 getDescendants(selectChildren([n], "*", []), type, found, searched);
             }
         }

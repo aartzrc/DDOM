@@ -23,6 +23,10 @@ class HtmlProcessor extends Processor implements IProcessor {
         super(htmlDoc.children.map((hn) -> htmlNodeToDataNode(hn)));
     }
 
+    public function select(selector:Selector = null):DDOM {
+        return new DDOMInst(this, selector);
+    }
+
     var nodeMap:Map<HtmlNode, DataNode> = [];
     function htmlNodeToDataNode(hn:HtmlNode):DataNode {
         if(!nodeMap.exists(hn)) {

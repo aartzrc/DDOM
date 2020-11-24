@@ -34,6 +34,18 @@ class TokenizerTests {
             res:[[OfType("customer", [ValEq("firstname", "jon"), Contains("lastname", "doe")])]]
         });
 
+        // Get descendants
+        tests.push({
+            sel:"html [htmlext-class=customers_table]",
+            res:[[OfType("html", []),Descendants("", [ValEq("htmlext-class", "customers_table")])]]
+        });
+
+        // Children with limiters
+        tests.push({
+            sel:"html > body > div[htmlext-class=customers_table]",
+            res:[[OfType("html", []),Children("body", []),Children("div", [ValEq("htmlext-class", "customers_table")])]]
+        });
+
         // All types with 'contains'
         tests.push({
             sel:"*[name*=myth]",
@@ -91,6 +103,7 @@ class TokenizerTests {
             res:[[OfType("USER",[Id("72")]),Children("item",[])]]
         };
         tests.push(t1);
+        
 
         var fails = 0;
         for(t in tests) {

@@ -9,7 +9,7 @@ import ddom.db.DBProcessor;
 import ddom.db.DDOMDBProcessor;
 
 @:access(ddom.DDOMInst,ddom.DataNode, ddom.db.DataNode_T)
-class Main {
+class Tests {
 	static function main() {
         // Other tests to implement - stub code
 
@@ -150,7 +150,7 @@ class Main {
             }
         ];
 
-        var dbConn = new DBProcessor({user:"bgp", pass:"bgp", host:"127.0.0.1", database:"proctrack"}, typeMap, true, true);
+        var dbConn = new DBProcessor({user:"bgp", pass:"bgp", host:"127.0.0.1", database:"proctrack"}, typeMap);
 
         // This is all screwy now... multiple Pos filters??
         // The main issue is related to filter append like '.:pos(0)' - maybe a new token that makes this easier to process?

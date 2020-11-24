@@ -54,6 +54,7 @@ class Tokenizer {
                             filters = [];
                         case ",".code:
                             mode = NewGroup;
+                            filters = [];
                     }
                 case OfType(start):
                     switch(c) {
@@ -75,6 +76,7 @@ class Tokenizer {
                         case ",".code:
                             group.push(OfType(selector.substring(start, i), filters));
                             mode = NewGroup;
+                            filters = [];
                     }
                 case Descendants(start):
                     switch(c) {
@@ -144,14 +146,14 @@ class Tokenizer {
                                 mode = Children(i);
                             } else {
                                 mode = Descendants(i);
-                                filters = [];
                                 group.push(Children(selector.substring(start+1, i), filters));
                             }
+                            filters = [];
                         case ",".code:
                             var t = selector.substring(start+1, i);
                             group.push(Children(t, filters));
                             mode = NewGroup;
-
+                            filters = [];
                     }
                 case Parents(start):
                     switch(c) {
