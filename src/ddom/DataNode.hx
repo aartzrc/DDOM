@@ -5,7 +5,7 @@ using LambdaExt;
 // This is the actual data item, DDOM wraps this
 @:allow(ddom.DDOMInst, ddom.DDOM, ddom.Processor, ddom.SelectorListener)
 class DataNode {
-    var type:String;
+    public var type(default,null):String;
     var fields:Map<String,String> = [];
     var children:Array<DataNode> = [];
     var parents:Array<DataNode> = [];
@@ -144,7 +144,6 @@ class DataNode {
 }
 
 enum Event {
-    //Batch(events:Array<Event>);
     Created(node:DataNode);
     Removed(node:DataNode);
     ChildAdded(node:DataNode, child:DataNode);

@@ -1,3 +1,4 @@
+import haxe.macro.Context;
 using Lambda;
 using LambdaExt;
 
@@ -6,9 +7,10 @@ using ddom.SelectorListener;
 import ddom.Selector;
 import ddom.DataNode;
 import ddom.Processor;
+using User;
 
 @:access(ddom.DDOMInst,ddom.DataNode, ddom.db.DataNode_T)
-class Tests {
+class Examples {
 	static function main() {
         // These aren't really tests yet, just sample code
 
@@ -20,47 +22,77 @@ class Tests {
 
         //chainTests();
 
-        castTests();
+        //castTests();
 
         //attachDetachTests();
 
-	}
+        readmeSample();
+
+    }
+    
+    static function readmeSample() {
+        var session = DDOM.create("session"); // DDOM.create will return a DDOM using the default `Processor` with a single root `DataNode` of the specified type
+        session.id = "home-server"; // `id` is special, and can be used for lookups
+        var homeSession = session.select("#home-server"); // Search for any node with the id of 'home-server' and return a new DDOM
+        trace(homeSession); // {*#home-server} = [{type:session,id:home-server}]
+        var notFound = session.select("#badid"); // Search for #badid - this returns an empty result
+        trace(notFound); // {*#badid} = []
+
+        // Add a 'user' with a 'cart' as a child of the 'session'
+        var user = DDOM.create("user");
+        user.name = "new person";
+        var cart = DDOM.create("cart");
+        user.append(cart);
+        session.append(user);
+
+        // Find all carts - {* cart} means 'select all at current level, then find all descendants of type cart'
+        trace(session.select("* cart")); // {* cart} = [{type:cart}]
+        
+        // Select children of type 'user' from the current level (session)
+        var users = session.select("> user");
+        trace(users); // {* > user} = [{type:user => name:new person}]
+        // Chain a new selector, the previous selector and processor are remembered
+        trace(users.select("> cart")); // {* > user > cart} = [{type:cart}]
+
+        var userDataNode = users.nodesOfType("user")[0]; // Get the first instance of a 'user' DataNode
+        var detachFunc = userDataNode.on((e) -> { trace(e); }); // On change event: FieldSet({type:user => name:new person,email:someone@email.com},email,someone@email.com)
+        users.email = "someone@email.com"; // Results in a trace event
+        detachFunc(); // Remove the listener
+        users.email = "newemail@email.com"; // Not traced
+
+        // Type safety
+        var u = User.create(1234, "person a");
+        trace(u);
+        session.append(u);
+        trace(users); // Note that the previous 'users' DDOM instance retains the original data set - this is intentional
+        trace(users.select()); // This will return the new data set
+    }
 
     static function attachDetachTests() {
-        var cache = DDOM.create("cache");
-        var u1 = DDOM.create("user");
-        u1.name = "person a";
-        cache.append(u1);
-        var u2 = DDOM.create("user");
-        u2.name = "person b";
-        cache.append(u2);
-
-        var d = cache.select("> user");
+        var session = DDOM.create("session");
+        var d = session.select("> user");
         d.attach((ddom) -> trace(ddom));
-        d.name = "name changed"; // This is ignored by the listener
-        var u3 = DDOM.create("user");
-        trace("append");
-        cache.append(u3); // This should result in an update
+        session.append(DDOM.create("user")); // This results in an update
+        d.name = "name changed"; // This is ignored by the listener - only structure changes are handled
     }
 
     static function castTests() {
         var cache = DDOM.create("cache");
 
         // Listen for users being added to the cache
-        cache.select("> user").attach((cacheUpdate) -> {
+        cache.children(User.type).attach((cacheUpdate) -> {
             trace(cacheUpdate);
         }, false);
 
-        var u1 = DDOM.create(User.className);
-        u1.name = "person a";
-        u1.id = u1.name;
+        var u1 = User.create(1234, "person a");
         cache.append(u1);
-        var u2 = DDOM.create(User.className);
+
+        var u2 = DDOM.create(User.type);
         u2.name = "person b";
         u2.id = u2.name;
         cache.append(u2);
 
-        var users:Array<User> = cache.select(">").nodesOfType(User.className); // Get children of User type
+        var users = cache.select(">").users();
         for(user in users) {
             user.onChange("name", (newName) -> trace(user + " : " + newName)); // Listen to the user "name" property change
             //user.name = "new guy?";
@@ -157,7 +189,7 @@ class Tests {
 
     //@:access(ddom.Processor)
     static function basicTests() {
-        // Create an obj
+        // Create a new DDOM with a single 'session' node as the root
 		var session = DDOM.create("session");
         trace(session);
         /*var t:DDOMInst = cast session; // Cast to DDOMInst to break out of DDOM field read/write!
@@ -231,33 +263,5 @@ class Tests {
         cache.append(user);
         trace(cache.children());
         trace(user.parents());
-    }
-}
-
-@:access(ddom.DataNode)
-abstract User(DataNode) from DataNode {
-    public static inline var className = "user";
-    public var name(get,set):String;
-
-    function get_name() {
-        return this.getField("name");
-    }
-
-    function set_name(name:String) {
-        this.setField("name", name);
-        return name;
-    }
-
-    public function onChange(field:String, callback:(String)->Void):()->Void {
-        function handleEvent(e) {
-            switch(e) {
-                case FieldSet(node, name, val):
-                    if(name == field) callback(val);
-                case _:
-                    // Not handled here
-            }
-        }
-        this.on(handleEvent);
-        return this.off.bind(handleEvent);
     }
 }

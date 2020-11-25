@@ -180,7 +180,7 @@ abstract DDOM(DDOMInst) from DDOMInst #if debug to DDOMInst #end {
      * @param ddom
      * @param type 
      */
-    public static function nodesOfType(ddom:DDOM, type:String) {
+    public static function nodesOfType(ddom:DDOM, type:String):Array<DataNode> {
         return cast(ddom, DDOMInst).nodes.filter((dn) -> dn.type == type);
     }
 }

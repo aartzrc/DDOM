@@ -2,5 +2,5 @@
 -cp src
 -D analyzer-optimize
 -debug
--main Tests
+-main Examples
 --interp
