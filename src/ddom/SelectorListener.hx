@@ -1,7 +1,6 @@
 package ddom;
 
 import ddom.DDOM;
-import ddom.Processor.IProcessor;
 
 class SelectorListener {
     /**

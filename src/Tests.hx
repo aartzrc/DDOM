@@ -5,42 +5,26 @@ using ddom.DDOM;
 using ddom.SelectorListener;
 import ddom.Selector;
 import ddom.DataNode;
-import ddom.db.DBProcessor;
-import ddom.db.DDOMDBProcessor;
+import ddom.Processor;
 
 @:access(ddom.DDOMInst,ddom.DataNode, ddom.db.DataNode_T)
 class Tests {
 	static function main() {
-        // Other tests to implement - stub code
+        // These aren't really tests yet, just sample code
 
         //basicTests();
+
         //childTests();
+
         //selectorTests();
-
-        tokenizerTests();
-
-        //selectorAppendTests();
 
         //chainTests();
 
-        //dbTests();
-
-        //castTests();
+        castTests();
 
         //attachDetachTests();
 
-        //ddomDBTests();
-
-        //transactionTests(); // Transactions are beyond the scope of DDOM - each processor has it's own way to create a transaction so it became too complex
 	}
-
-    static function ddomDBTests() {
-        var ddomConn = new DDOMDBProcessor({user:"om", pass:"om", host:"127.0.0.1", database:"ddom"});
-
-        trace(ddomConn.select("user#16 > session < *"));
-        
-        ddomConn.dispose();
-    }
 
     static function attachDetachTests() {
         var cache = DDOM.create("cache");
@@ -53,7 +37,7 @@ class Tests {
 
         var d = cache.select("> user");
         d.attach((ddom) -> trace(ddom));
-        d.name = "name changed"; // This should be ignored by the listener
+        d.name = "name changed"; // This is ignored by the listener
         var u3 = DDOM.create("user");
         trace("append");
         cache.append(u3); // This should result in an update
@@ -61,19 +45,27 @@ class Tests {
 
     static function castTests() {
         var cache = DDOM.create("cache");
-        var u1 = DDOM.create("user");
+
+        // Listen for users being added to the cache
+        cache.select("> user").attach((cacheUpdate) -> {
+            trace(cacheUpdate);
+        }, false);
+
+        var u1 = DDOM.create(User.className);
         u1.name = "person a";
+        u1.id = u1.name;
         cache.append(u1);
-        var u2 = DDOM.create("user");
+        var u2 = DDOM.create(User.className);
         u2.name = "person b";
+        u2.id = u2.name;
         cache.append(u2);
 
-        var users:Array<User> = cache.select("> user").nodesOfType("user");
+        var users:Array<User> = cache.select(">").nodesOfType(User.className); // Get children of User type
         for(user in users) {
-            trace(user.name);
-            user.onChange("name", (newName) -> trace(newName));
-            user.name = "new guy?";
+            user.onChange("name", (newName) -> trace(user + " : " + newName)); // Listen to the user "name" property change
+            //user.name = "new guy?";
         }
+        cache.select(">").name = "new guy?"; // Update all children at once
 
         trace(cache.select("> user"));
     }
@@ -120,132 +112,6 @@ class Tests {
         trace(sel4);
     }
 
-    @:access(ddom.DataNode)
-    static function dbTests() {
-        var typeMap:Array<TypeMap> = [
-            {
-                type:"customer",
-                table:"customer",
-                idCol:"id",
-                children: [{
-                    type:"item",
-                    table:"item",
-                    parentIdCol:"customer_id",
-                    childIdCol: "id"
-                }]
-            },
-            {
-                type:"item",
-                table:"item",
-                idCol:"id",
-                children: [{
-                    type:"history",
-                    table:"item_history",
-                    parentIdCol:"item_id"
-                }]
-            },
-            {
-                type:"history",
-                table:"item_history"
-            }
-        ];
-
-        var dbConn = new DBProcessor({user:"bgp", pass:"bgp", host:"127.0.0.1", database:"proctrack"}, typeMap);
-
-        // This is all screwy now... multiple Pos filters??
-        // The main issue is related to filter append like '.:pos(0)' - maybe a new token that makes this easier to process?
-        // Only one filter per top level token should be allowed, for example customer:pos(0) .:pos(1) should turn into customer:pos(1)
-        // TODO: store Selector as string instead of array, only parse to array when needed! this reduces overhead, selectors are being tokenized every time!
-        var customer_o = dbConn.select("customer")[0];
-        trace(customer_o.toString());
-        var items = customer_o.children("item")[0];
-        trace(items.toString());
-
-        //var items = dbConn.select("customer#60 > item, customer#61");
-        //trace(items.select(".customer")); // This doesn't work yet
-        /*var retail = dbConn.select("customer[name=Retail]");
-        var retailItems = retail.select("> item:orderasc(cdate)");
-        var last5 = retailItems.select(".:gt(" + (retailItems.size()-5) + ")");
-        var last5history = last5.select("history");
-        for(i in last5history) {
-            trace(i);
-        }
-
-        var lastHistory = retail.select("history:orderasc(udate)");
-        for(i in 0 ... 5) trace(lastHistory[i]);*/
-        //var history = customers.select("history");
-        //trace(history);
-        
-        /*for(c in customersDDOM) {
-            trace(c.name);
-        }*/
-        /*var items = dbConn.select("item");
-        trace(items.size());
-        var customers = items.select("< *");
-
-        trace(customers.size());*/
-        /*for(c in customers) {
-            var ddi:DDOMInst = c;
-            trace(ddi.nodes[0].type + " : " + c.name);
-        }*/
-        
-        /*var customer = items.toCustomerList();
-        trace(customer);*/
-
-        //trace(items.parents());
-
-
-        /*var items = dbConn.select("item[approx_value=160]");
-        trace(items.size());
-        for(i in items) {
-            trace(i);
-        }*/
-
-        // direct query mostly working (lots of custom logic to build that defines parent/child system, but it works...)
-        /*var items = dbConn.select("customer#6 > item");
-        for(i in items) {
-            trace(i.orderitem + " : " + i.desc);
-        }*/
-
-        // TODO: get re-select working - looks like the full token chain needs to be created and passed down?
-        //var customer2 = dbConn.select("customer#6");
-        //trace(customer2.id);
-        //trace(customer2.name);
-
-        /*var items = customer2.select("> item");
-        for(i in items) {
-            trace(i.orderitem + " : " + i.desc);
-        }*/
-
-        /*var customers = dbConn.select("customer#2,customer#3");
-        trace(customers);
-
-        var items = customer2.select("> item");
-        trace(items);*/
-
-        dbConn.dispose();
-    }
-
-    static function tokenizerTests() {
-        var s:Selector = "customer[name=jon doe]";
-        trace(s);
-
-        /*var selector:Selector = "session *:gt(2) > product[name=paper]";
-        trace(selector);*/
-        /*var s:Selector = "session#home-server:pos(0)";
-        trace(s);*/
-        /*var s:Selector = "> session";
-        s = s.concat("> user");
-        trace(s);
-        s = s.concat(".:pos(0)");
-        trace(s);*/
-        //var selector:Selector = "session#2 > customer[lastname=artz][firstname!=andy]:orderasc(firstname):pos(0)";
-        //trace(selector);
-        /*trace(DDOMSelectorProcessor.tokenize("session cart:gt(2)"));
-        trace(DDOMSelectorProcessor.tokenize("*"));
-        trace(DDOMSelectorProcessor.tokenize("*:gt(2)"));*/
-    }
-
     static function selectorTests() {
         // Create some objects
         var session = DDOM.create("session");
@@ -268,9 +134,9 @@ class Tests {
         // Test recursive loops
         cart.append(session);
 
-        //trace(session.select("*")); // Grab everything
+        trace(session.select()); // Grab everything at the current DDOM level
         //trace(session.select("#home-server")); // Get by ID
-        //trace(session.children("user"));
+        trace(session.children());
         //trace(session.select("> user")); // 'user' Children
         //trace(session.select("> user,> cart")); // Get children type - should be all users, no carts
         
@@ -283,19 +149,22 @@ class Tests {
         //trace(session[1]); // Array access
         //trace(session.select("*:lt(2)")); // Range select
         //trace(session.select("session cart")); // Carts in session
-        trace(session.select("user")); // This selects 'user's from the session DDOM (no users, so this is empty)
+        trace(session.select("user")); // This selects 'user's from the root session DDOM - no users at the root level
         trace(session.select("> user")); // Select 'user' children
         trace(session.select("> user").select("> cart")); // Test sub-select
         trace(session.select("> user > cart"));
     }
 
+    //@:access(ddom.Processor)
     static function basicTests() {
         // Create an obj
 		var session = DDOM.create("session");
         trace(session);
         /*var t:DDOMInst = cast session; // Cast to DDOMInst to break out of DDOM field read/write!
         trace(t._nodes);
-        trace(t.nodes);*/
+        trace(t.nodes);
+        var p:Processor = cast t.processor;
+        trace(p.rootNodes());*/
         session.id = "home-server";
         var s2 = session.select();
         trace(s2);
@@ -307,8 +176,10 @@ class Tests {
         trace(notFound);
 
         // Example that all DDOM instances are an array
-        for(s in homeSession)
+        for(s in homeSession) {
+            trace(s);
             trace(s.id);
+        }
         // Default to index 0 of array on direct field access
         trace(homeSession.id);
 
@@ -365,6 +236,7 @@ class Tests {
 
 @:access(ddom.DataNode)
 abstract User(DataNode) from DataNode {
+    public static inline var className = "user";
     public var name(get,set):String;
 
     function get_name() {

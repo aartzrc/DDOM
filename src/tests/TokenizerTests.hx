@@ -37,7 +37,7 @@ class TokenizerTests {
         // Get descendants
         tests.push({
             sel:"html [htmlext-class=customers_table]",
-            res:[[OfType("html", []),Descendants("", [ValEq("htmlext-class", "customers_table")])]]
+            res:[[OfType("html", []),Descendants("*", [ValEq("htmlext-class", "customers_table")])]]
         });
 
         // Children with limiters
@@ -101,6 +101,21 @@ class TokenizerTests {
         var t1:SelectorTest = {
             sel:sel.concat("> item"),
             res:[[OfType("USER",[Id("72")]),Children("item",[])]]
+        };
+        tests.push(t1);
+
+        // Direct concat all children
+        var sel:Selector = "USER#72";
+        var t1:SelectorTest = {
+            sel:sel.concat(">"),
+            res:[[OfType("USER",[Id("72")]),Children("*",[])]]
+        };
+        tests.push(t1);
+
+        // Direct select of an id
+        var t1:SelectorTest = {
+            sel:"#home-server",
+            res:[[OfType("*",[Id("home-server")])]]
         };
         tests.push(t1);
         

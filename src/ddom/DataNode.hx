@@ -15,7 +15,7 @@ class DataNode {
 	function new(type:String, fields:Map<String,String>, batch:EventBatch = null) {
         this.type = type;
         if(batch != null) {
-            batch.events.push(Created(this));
+            batch.events.push({event: Created(this), listeners: listeners});
         } else {
             fire(Created(this));
         }
@@ -24,10 +24,10 @@ class DataNode {
 
     function remove(batch:EventBatch = null) {
         var fireBatch = batch == null;
-        batch = buildBatch(batch);
+        if(batch == null) batch = createBatch();
         while(parents.length > 0)
             removeParent(parents[0], batch);
-        batch.events.push(Removed(this));
+        batch.events.push({event:Removed(this), listeners: listeners});
         if(fireBatch) batch.fire();
     }
 
@@ -35,8 +35,7 @@ class DataNode {
         if(force || fields[name] != val) {
             fields[name] = val;
             if(batch != null) {
-                batch = buildBatch(batch);
-                batch.events.push(FieldSet(this, name, val));
+                batch.events.push({event:FieldSet(this, name, val), listeners: listeners});
             } else {
                 fire(FieldSet(this, name, val));
             }
@@ -50,8 +49,8 @@ class DataNode {
     function addChild(child:DataNode, batch:EventBatch = null, force:Bool = false) {
         if(force || children.pushUnique(child)) {
             var fireBatch = batch == null;
-            batch = buildBatch(batch);
-            batch.events.push(ChildAdded(this, child));
+            if(batch == null) batch = createBatch();
+            batch.events.push({event: ChildAdded(this, child), listeners: listeners});
             child.addParent(this, batch);
             if(fireBatch) batch.fire();
             return true;
@@ -62,8 +61,8 @@ class DataNode {
     function removeChild(child:DataNode, batch:EventBatch = null, force:Bool = false) {
         if(force || children.remove(child)) {
             var fireBatch = batch == null;
-            batch = buildBatch(batch);
-            batch.events.push(ChildRemoved(this, child));
+            if(batch == null) batch = createBatch();
+            batch.events.push({event: ChildRemoved(this, child), listeners: listeners});
             child.removeParent(this, batch);
             if(fireBatch) batch.fire();
             return true;
@@ -74,8 +73,8 @@ class DataNode {
     function addParent(parent:DataNode, batch:EventBatch = null, force:Bool = false) {
         if(force || parents.pushUnique(parent)) {
             var fireBatch = batch == null;
-            batch = buildBatch(batch);
-            batch.events.push(ParentAdded(this, parent));
+            if(batch == null) batch = createBatch();
+            batch.events.push({event: ParentAdded(this, parent), listeners: listeners});
             parent.addChild(this, batch);
             if(fireBatch) batch.fire();
             return true;
@@ -86,8 +85,8 @@ class DataNode {
     function removeParent(parent:DataNode, batch:EventBatch = null, force:Bool = false) {
         if(force || parents.remove(parent)) {
             var fireBatch = batch == null;
-            batch = buildBatch(batch);
-            batch.events.push(ParentRemoved(this, parent));
+            if(batch == null) batch = createBatch();
+            batch.events.push({event: ParentRemoved(this, parent), listeners: listeners});
             parent.removeChild(this, batch);
             if(fireBatch) batch.fire();
             return true;
@@ -116,22 +115,14 @@ class DataNode {
         return "{type:" + type + (id != null ? ",id:" + id : "") + (out.length > 0 ? " => " + out : "") + "}";
     }
 
-    function buildBatch(batch:EventBatch = null):EventBatch {
-        if(batch == null) batch = createBatch();
-        for(l in listeners)
-            batch.listeners.pushUnique(l);
-        return batch;
-    }
-
     static function createBatch():EventBatch {
-        var events:Array<Event> = [];
-        var listeners:Array<(Event)->Void> = [];
+        var events:Array<{event:Event, listeners:Array<(Event)->Void>}> = [];
         return { 
             events:events,
-            listeners:listeners,
             fire: () -> {
-                var batch = Batch(events);
-                for(l in listeners) l(batch);
+                for(e in events) {
+                    for(l in e.listeners) l(e.event);
+                }
             } 
         };
     }
@@ -153,7 +144,7 @@ class DataNode {
 }
 
 enum Event {
-    Batch(events:Array<Event>);
+    //Batch(events:Array<Event>);
     Created(node:DataNode);
     Removed(node:DataNode);
     ChildAdded(node:DataNode, child:DataNode);
@@ -164,7 +155,6 @@ enum Event {
 }
 
 typedef EventBatch = {
-    events:Array<Event>,
-    listeners:Array<(Event)->Void>,
+    events:Array<{event:Event, listeners:Array<(Event)->Void>}>,
     fire:Void -> Void
 }

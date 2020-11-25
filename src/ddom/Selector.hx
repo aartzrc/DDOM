@@ -84,6 +84,22 @@ abstract Selector(Array<SelectorGroup>) from Array<SelectorGroup> to Array<Selec
         var out:Array<SelectorGroup> = [];
         for(parentGroup in this) {
             for(childGroup in (selector:Array<SelectorGroup>)) {
+                if(parentGroup.length == 1) { // Detect append on a 'root' selector
+                    switch(parentGroup[0]) {
+                        case OfType(type, filters):
+                            if(type == ".") { // Root selector, check if the childGroup is OfType and adjust to select at current node level
+                                parentGroup = [OfType("*", filters)];
+                                if(childGroup.length > 0) {
+                                    switch(childGroup[0]) {
+                                        case OfType(_):
+                                            parentGroup = [];
+                                        case _: // Ignored
+                                    }
+                                }
+                            }
+                        case _: // Ignored
+                    }
+                }
                 out.push(parentGroup.concat(childGroup));
             }
         }

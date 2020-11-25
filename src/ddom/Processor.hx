@@ -87,8 +87,7 @@ class Processor implements IProcessor {
         nodeDetachFuncs = [];
         function recurseNode(n:DataNode) {
             if(!nodeDetachFuncs.exists(n)) {
-                n.on(handleEvent);
-                nodeDetachFuncs.set(n, n.off.bind(handleEvent));
+                nodeDetachFuncs.set(n, n.on(handleEvent));
                 for(nn in n.children.concat(n.parents))
                     recurseNode(nn);
             }
@@ -106,19 +105,10 @@ class Processor implements IProcessor {
         cacheMap = null; // Reset cache
         //if(listenerMap == null) return; // Always listen for structure changes
 
-        var structChanges = false;
-        function checkForStructChanges(e:Event) {
-            if(structChanges) return; // Change already detected, ignore further tests
-            switch(e) {
-                case Created(_) | FieldSet(_): // Ignore
-                case ChildAdded(_) | ChildRemoved(_) | ParentAdded(_) | ParentRemoved(_) | Removed(_):
-                    structChanges = true;
-                case Batch(events):
-                    for(e in events) checkForStructChanges(e);
-            }
+        var structChanges = switch(e) {
+            case Created(_) | FieldSet(_): false;
+            case ChildAdded(_) | ChildRemoved(_) | ParentAdded(_) | ParentRemoved(_) | Removed(_): true;
         }
-
-        checkForStructChanges(e);
 
         if(structChanges) {
             // Detach/reattach all listeners

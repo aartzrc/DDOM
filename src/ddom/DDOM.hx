@@ -166,13 +166,13 @@ abstract DDOM(DDOMInst) from DDOMInst #if debug to DDOMInst #end {
 
     public static function create(type:String):DDOM {
         var processor = new Processor([new DataNode(type, [])]);
-        return new DDOMInst(processor, "");
+        return new DDOMInst(processor, ".");
     }
 
     public static var empty(get,never):DDOM;
     
     static inline function get_empty():DDOM {
-        return new DDOMInst(new Processor([]), "");
+        return new DDOMInst(new Processor([]), ".");
     }
 
     /**

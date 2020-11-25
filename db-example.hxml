@@ -1,5 +1,0 @@
--lib LambdaExt
--cp src
--D analyzer-optimize
--main examples.DBTest
--hl db-example.hl
