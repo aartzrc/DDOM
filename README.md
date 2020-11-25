@@ -8,10 +8,10 @@ DDOM also has event listeners and can batch events which allows for asynchronous
 
 `DataNode` instances hold parent/child data and a map/dictionary of strings. In general you do not access the `DataNode` directly, instead use the `DDOM` returned from another `DDOM` or a `Processor`.    
 The `Processor` handles finding and filtering `DataNode` instances based on a `Selector` and wrapping them in a `DDOM` for use. The `Processor` is the main extension point when adding a new type of data handler (see DDOM-DB for example).  
-A `Selector` is a string that provides the search path to the data needed. They are formatting similar to a CSS or JQuery selector.  
+A `Selector` is a string that provides the search path to the data needed. They are formatted similar to a CSS or JQuery selector.  
 A `DDOM` will never be null, and all operations on it will not fail or throw exceptions.  
 The `DataNode` type and properties are all strings, this is intentional to keep the data as simple as possible. See below for type safety considerations in dealing with DDOM.  
-During a 'select' on a `DDOM` the data is not actually requested, only when the data is needed does the `Processor` get called to provide a result. Once the results are provided they are cached in the `DDOM` instance, this is done for speed and so iterating on the `DDOM` is stable. To refresh the data set and new `DDOM` is needed, which can be done by calling `select()`.
+During a 'select' on a `DDOM` the data is not actually requested, only when the data is needed does the `Processor` get called to provide a result. Once the results are provided they are cached in the `DDOM` instance, this is done for speed and so iterating on the `DDOM` is stable. To refresh the data set a new `DDOM` is needed, which can be done by calling `select()`.
 
 ### Usage examples (see Examples.hx):  
 
@@ -70,7 +70,7 @@ users.email = "newemail@email.com"; // Not traced
 
 ### Type Safety
 
-DDOM reduces the complexity of data access, but also removes all type safety (oh no!) To recover type safety it is recommended to wrap the `DataNode` instances in an abstract that can validate and provide simpler access to data. See `User.hx` and `Examples.hx` files.
+DDOM reduces the complexity of data access, but also removes all type safety (oh no!) To recover type safety it is recommended to wrap the `DataNode` instances in an abstract that can validate and provide simpler access to data. See `User.hx` and `Examples.hx` files.  
 
 ### Selector examples
 
