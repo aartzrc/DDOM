@@ -28,6 +28,14 @@ class SelectorListener {
         l.listenDetachFuncs = null;
     }
 
+    public static function once(ddom:DDOM, callback:(DDOM)->Void) {
+        var detach:()->Void = null;
+        detach = attach(ddom, (val) -> {
+            detach();
+            callback(val);
+        }, false);
+    }
+
     static function handleChange(l:Listener) {
         l.ddom = l.ddom.select();
         l.callback(l.ddom);
