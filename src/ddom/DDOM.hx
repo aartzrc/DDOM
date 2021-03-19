@@ -30,16 +30,18 @@ class DDOMInst {
      * Helper to get children - maps directly to "> *" selector
      * @return DDOM
      */
-    public function children(type:String = "*"):DDOM {
-        return select("> " + type); // Get all direct children of nodes in this DDOM
+    public function children(subSelect:Selector = null):DDOM {
+        if(subSelect == null) return select("> *");
+        return select("> " + subSelect); // Get all direct children of nodes in this DDOM
     }
 
     /**
      * Helper to get parents - maps directly to "< *" selector
      * @return DDOM
      */
-    public function parents(type:String = "*"):DDOM {
-        return select("< " + type); // Get all parents of nodes in this DDOM
+    public function parents(subSelect:Selector = null):DDOM {
+        if(subSelect == null) return select("< *");
+        return select("< " + subSelect); // Get all parents of nodes in this DDOM
     }
 
     /**

@@ -28,7 +28,7 @@ class SelectorListener {
         l.listenDetachFuncs = null;
     }
 
-    public static function once(ddom:DDOM, callback:(DDOM)->Void) {
+    public static function then(ddom:DDOM, callback:(DDOM)->Void) {
         var detach:()->Void = null;
         detach = attach(ddom, (val) -> {
             detach();
